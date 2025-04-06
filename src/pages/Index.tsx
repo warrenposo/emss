@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import LoginPage from '../components/auth/LoginPage';
 import { useNavigate } from 'react-router-dom';
@@ -11,11 +10,22 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
+    let mounted = true;
+    
     // Check if user is already logged in
     const checkSession = async () => {
+      if (!mounted) return;
+      
       setIsLoading(true);
       try {
+        // Check if Supabase is configured
+        if (!supabase) {
+          throw new Error('Supabase client is not properly configured');
+        }
+
         const { data, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
         
         if (error) {
           console.error('Error checking session:', error);
@@ -30,15 +40,32 @@ const Index = () => {
           navigate('/dashboard');
         }
       } catch (err: any) {
+        if (!mounted) return;
         console.error('Unexpected error checking session:', err);
         setError('An unexpected error occurred');
         toast.error('Authentication error: ' + (err.message || 'Unknown error'));
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
     
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (mounted && isLoading) {
+        setIsLoading(false);
+        setError('Loading timeout. Please refresh the page.');
+        toast.error('Loading timeout. Please refresh the page.');
+      }
+    }, 10000); // 10 seconds timeout
+    
     checkSession();
+    
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [navigate]);
 
   if (isLoading) {
