@@ -16,7 +16,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    storage: localStorage
+    storage: localStorage,
+    detectSessionInUrl: false // Disable session detection in URL to prevent navigation issues
   }
 });
 
@@ -37,7 +38,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth state changed:', event);
   if (session?.user) {
     console.log('User authenticated:', session.user.email);
-    // Update the last_login field in user_profiles
     
     try {
       // First check if the user profile exists
@@ -51,23 +51,23 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         console.error('Error checking user profile:', profileError);
       }
       
-      // If profile doesn't exist, create one with admin role
+      // If profile doesn't exist, create one
       if (!profile) {
-        console.log('Creating new admin profile for user:', session.user.id);
+        console.log('Creating new profile for user:', session.user.id);
         const { error: insertError } = await supabase
           .from('user_profiles')
           .insert({
             id: session.user.id,
             first_name: session.user.user_metadata?.first_name || 'User',
             last_name: session.user.user_metadata?.last_name || '',
-            role: 'administrator', // Default to administrator
+            role: 'administrator', // Default to administrator role
             last_login: new Date().toISOString()
           });
           
         if (insertError) {
           console.error('Error creating user profile:', insertError);
         } else {
-          console.log('Created admin profile successfully');
+          console.log('Created user profile successfully');
         }
       } else {
         // Update last login
@@ -79,9 +79,6 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         if (updateError) {
           console.error('Error updating last login:', updateError);
         }
-        
-        // Log the current role
-        console.log('Current user role:', profile.role);
       }
     } catch (err) {
       console.error('Error in auth state change handler:', err);
@@ -94,50 +91,23 @@ export const isSupabaseConfigured = () => {
   return !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 };
 
-// Get the current user role
-export const getCurrentUserRole = async () => {
+// Get current user's role
+export const getCurrentUserRole = async (): Promise<string | null> => {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.log('No authenticated user found');
-      return null;
-    }
-    
-    console.log('Getting role for user:', user.id);
-    
-    // First try to get the role directly from the user_profiles table
-    const { data: profile, error: profileError } = await supabase
+    if (!user) return null;
+
+    const { data: profile, error } = await supabase
       .from('user_profiles')
       .select('role')
       .eq('id', user.id)
-      .maybeSingle();
-      
-    if (profileError) {
-      console.error('Error fetching user role:', profileError);
-      
-      // If the profile doesn't exist, create one with administrator role
-      if (profileError.message.includes('contains 0 rows')) {
-        console.log('Profile not found, creating admin profile');
-        const { error: insertError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: user.id,
-            first_name: user.user_metadata?.first_name || 'User',
-            last_name: user.user_metadata?.last_name || '',
-            role: 'administrator'
-          });
-          
-        if (insertError) {
-          console.error('Error creating user profile:', insertError);
-          return null;
-        }
-        
-        return 'administrator';
-      }
+      .single();
+
+    if (error) {
+      console.error('Error fetching user role:', error);
       return null;
     }
-      
-    console.log('User role from database:', profile?.role);
+
     return profile?.role || null;
   } catch (error) {
     console.error('Error in getCurrentUserRole:', error);
@@ -145,87 +115,8 @@ export const getCurrentUserRole = async () => {
   }
 };
 
-// Check if the current user is an administrator
-export const isUserAdmin = async () => {
-  try {
-    const role = await getCurrentUserRole();
-    console.log('Checking if user is admin, role:', role);
-    
-    if (role === 'administrator') {
-      return true;
-    }
-    
-    // If not admin, attempt to promote to admin if the user is the first user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      // Check if this is potentially the first user in the system
-      const { count, error: countError } = await supabase
-        .from('user_profiles')
-        .select('*', { count: 'exact', head: true });
-        
-      if (!countError && count !== null && count <= 1) {
-        console.log('This appears to be the first user, promoting to admin');
-        const { error: updateError } = await supabase
-          .from('user_profiles')
-          .update({ role: 'administrator' })
-          .eq('id', user.id);
-          
-        if (!updateError) {
-          console.log('Successfully promoted user to admin');
-          return true;
-        }
-      }
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('Error in isUserAdmin:', error);
-    return false;
-  }
-};
-
-// Function to ensure the current user has an admin profile
-export const ensureAdminProfile = async () => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.log('No authenticated user found');
-      return false;
-    }
-    
-    // Check for existing profile
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role, first_name, last_name')
-      .eq('id', user.id)
-      .maybeSingle();
-      
-    // If profile exists and is already admin, return true
-    if (profile && profile.role === 'administrator') {
-      return true;
-    }
-    
-    // Create or update profile to admin role
-    const { error } = await supabase
-      .from('user_profiles')
-      .upsert({
-        id: user.id,
-        role: 'administrator',
-        first_name: user.user_metadata?.first_name || (profile?.first_name || 'Admin'),
-        last_name: user.user_metadata?.last_name || (profile?.last_name || 'User')
-      });
-      
-    if (error) {
-      console.error('Error ensuring admin profile:', error);
-      toast.error('Failed to set admin privileges: ' + error.message);
-      return false;
-    }
-    
-    console.log('Successfully ensured admin profile for user');
-    toast.success('Administrator privileges have been granted');
-    return true;
-  } catch (error) {
-    console.error('Error in ensureAdminProfile:', error);
-    return false;
-  }
+// Check if current user is an administrator
+export const isUserAdmin = async (): Promise<boolean> => {
+  const role = await getCurrentUserRole();
+  return role === 'administrator';
 };

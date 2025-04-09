@@ -153,57 +153,47 @@ const EmployeesList: React.FC = () => {
     mutationFn: async (newEmp: Partial<Employee>) => {
       console.log('Adding employee:', newEmp);
       
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      if (!sessionData.session) {
-        throw new Error('You must be logged in to add employees.');
-      }
-      
-      const { data, error } = await supabase
-        .from('employees')
-        .insert([{
-          badge_number: newEmp.badge_number,
-          first_name: newEmp.first_name,
-          last_name: newEmp.last_name,
-          gender: newEmp.gender || null,
-          department_id: newEmp.department_id || null,
-          position_id: newEmp.position_id || null,
-          card_no: newEmp.card_no || null,
-          passport_no: newEmp.passport_no || null,
-          phone: newEmp.phone || null,
-          mobile: newEmp.mobile || null,
-          email: newEmp.email,
-          birthday: newEmp.birthday || null,
-          hire_date: newEmp.hire_date,
-          resign_date: newEmp.resign_date || null,
-          notes: newEmp.notes || null
-        }])
-        .select();
+      try {
+        const { data, error } = await supabase
+          .from('employees')
+          .insert([{
+            badge_number: newEmp.badge_number || null,
+            first_name: newEmp.first_name,
+            last_name: newEmp.last_name,
+            gender: newEmp.gender || null,
+            department_id: newEmp.department_id || null,
+            position_id: newEmp.position_id || null,
+            card_no: newEmp.card_no || null,
+            passport_no: newEmp.passport_no || null,
+            phone: newEmp.phone || null,
+            mobile: newEmp.mobile || null,
+            email: newEmp.email || null,
+            birthday: newEmp.birthday || null,
+            hire_date: newEmp.hire_date || new Date().toISOString().split('T')[0],
+            resign_date: newEmp.resign_date || null,
+            notes: newEmp.notes || null
+          }])
+          .select();
+          
+        if (error) {
+          console.error('Error adding employee:', error);
+          throw new Error(error.message);
+        }
         
-      if (error) throw error;
-      return data[0];
+        return data[0];
+      } catch (error: any) {
+        console.error('Error in mutation:', error);
+        throw new Error(error.message);
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
-      setIsAddDialogOpen(false);
-      setNewEmployee({
-        id: '',
-        badge_number: '',
-        first_name: '',
-        last_name: '',
-        email: '',
-        hire_date: new Date().toISOString().split('T')[0],
-      });
       toast.success('Employee added successfully');
+      setIsAddDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
     },
     onError: (error: any) => {
-      console.error('Error adding employee:', error);
-      
-      if (error.message && error.message.includes("row-level security policy")) {
-        toast.error("Permission denied: You don't have access to add employees. Please contact your administrator.");
-      } else {
-        toast.error(`Failed to add employee: ${error.message || 'Unknown error'}`);
-      }
+      console.error('Mutation error:', error);
+      toast.error(`Failed to add employee: ${error.message}`);
     }
   });
 
@@ -319,16 +309,16 @@ const EmployeesList: React.FC = () => {
   };
 
   const confirmAdd = () => {
-    if (!newEmployee.badge_number || !newEmployee.first_name || !newEmployee.last_name || !newEmployee.email || !newEmployee.hire_date) {
-      toast.error('Please fill in all required fields');
+    if (!newEmployee.first_name || !newEmployee.last_name) {
+      toast.error('Please fill in at least the first and last name');
       return;
     }
     addEmployeeMutation.mutate(newEmployee);
   };
 
   const confirmEdit = () => {
-    if (!newEmployee.badge_number || !newEmployee.first_name || !newEmployee.last_name || !newEmployee.email || !newEmployee.hire_date) {
-      toast.error('Please fill in all required fields');
+    if (!newEmployee.first_name || !newEmployee.last_name) {
+      toast.error('Please fill in at least the first and last name');
       return;
     }
     updateEmployeeMutation.mutate(newEmployee);
@@ -536,7 +526,7 @@ const EmployeesList: React.FC = () => {
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="badge_number">Badge Number *</Label>
+              <Label htmlFor="badge_number">Badge Number</Label>
               <Input
                 id="badge_number"
                 value={newEmployee.badge_number}
@@ -614,7 +604,7 @@ const EmployeesList: React.FC = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -642,7 +632,7 @@ const EmployeesList: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="hire_date">Hire Date *</Label>
+              <Label htmlFor="hire_date">Hire Date</Label>
               <Input
                 id="hire_date"
                 type="date"
@@ -686,7 +676,7 @@ const EmployeesList: React.FC = () => {
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit_badge_number">Badge Number *</Label>
+              <Label htmlFor="edit_badge_number">Badge Number</Label>
               <Input
                 id="edit_badge_number"
                 value={newEmployee.badge_number}
@@ -764,7 +754,7 @@ const EmployeesList: React.FC = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit_email">Email *</Label>
+              <Label htmlFor="edit_email">Email</Label>
               <Input
                 id="edit_email"
                 type="email"
@@ -792,7 +782,7 @@ const EmployeesList: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit_hire_date">Hire Date *</Label>
+              <Label htmlFor="edit_hire_date">Hire Date</Label>
               <Input
                 id="edit_hire_date"
                 type="date"

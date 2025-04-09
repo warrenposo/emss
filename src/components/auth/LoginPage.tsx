@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
@@ -23,31 +22,39 @@ const LoginPage = () => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user || null);
-        if (session?.user) {
-          localStorage.setItem('isLoggedIn', 'true');
+    let mounted = true;
+    
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+        
+        if (session?.user && mounted) {
+          setUser(session.user);
           navigate('/dashboard');
+        }
+      } catch (error) {
+        console.error("Session check error:", error);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (mounted) {
+          setUser(session?.user || null);
+          if (session?.user) {
+            navigate('/dashboard');
+          }
         }
       }
     );
 
-    // Check if user is already authenticated
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        localStorage.setItem('isLoggedIn', 'true');
-        navigate('/dashboard');
-      }
-    };
-    
-    checkUser();
+    checkSession();
 
     return () => {
-      subscription.unsubscribe();
+      mounted = false;
+      subscription?.unsubscribe();
     };
   }, [navigate]);
 
@@ -87,10 +94,6 @@ const LoginPage = () => {
         });
       } else if (data.user) {
         console.log("Login successful, user:", data.user);
-        
-        if (rememberMe) {
-          localStorage.setItem('isLoggedIn', 'true');
-        }
         
         // First user is automatically administrator based on our SQL migration
         const { data: userProfile } = await supabase
