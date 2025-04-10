@@ -470,6 +470,8 @@ const EmployeesList: React.FC = () => {
       <AddEmployeeDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
+        departments={departments}
+        positions={positions}
       />
 
       {selectedEmployee && (
@@ -478,6 +480,8 @@ const EmployeesList: React.FC = () => {
             open={isEditDialogOpen}
             onOpenChange={setIsEditDialogOpen}
             employee={selectedEmployee}
+            departments={departments}
+            positions={positions}
           />
 
           <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
