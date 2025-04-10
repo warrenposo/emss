@@ -80,8 +80,7 @@ const DevicesList: React.FC = () => {
           fw_version: '1.0.0',
           push_version: '1.0.0',
           timezone: 'UTC',
-          mac: '00:00:00:00:00:00',
-          area_name: device.area_name || 'Main Office'
+          mac: '00:00:00:00:00:00'
         }])
         .select()
         .single();
@@ -97,7 +96,6 @@ const DevicesList: React.FC = () => {
         device_alias: '',
         ip_address: '',
         is_biometric: false,
-        area_name: '',
       });
       toast.success('Device added successfully');
     },
@@ -306,16 +304,6 @@ const DevicesList: React.FC = () => {
                   setNewDevice({ ...newDevice, ip_address: e.target.value })
                 }
                 placeholder="Enter device IP address (e.g., 192.168.100.51)"
-              />
-            </div>
-            <div>
-              <Label>Area Name</Label>
-              <Input
-                value={newDevice.area_name}
-                onChange={(e) =>
-                  setNewDevice({ ...newDevice, area_name: e.target.value })
-                }
-                placeholder="Enter area name (e.g., Main Office, Reception)"
               />
             </div>
             <div>
