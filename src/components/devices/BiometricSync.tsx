@@ -25,7 +25,7 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
       setSyncProgress('Connecting to device...');
       
       try {
-        const response = await fetch('/api/devices/sync', {
+        const response = await fetch('http://localhost:8081/api/devices/sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -38,9 +38,16 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
           }),
         });
 
-        const data = await response.json();
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API Error Response:', errorText);
+          throw new Error(errorText || 'Failed to sync with biometric device');
+        }
 
-        if (!response.ok || !data.success) {
+        const data = await response.json();
+        console.log('API Success Response:', data);
+
+        if (!data.success) {
           throw new Error(data.message || 'Failed to sync with biometric device');
         }
 
