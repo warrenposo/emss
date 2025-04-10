@@ -14,25 +14,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import BiometricSync from './BiometricSync';
 
 type Device = {
-  id: string;
+  id: string;  // uuid
   serial_number: string;
-  device_name: string;
-  last_update: string;
-  area_name: string;
-  update_status: string;
-  license: string;
-  status_string: string;
-  timezone: string;
-  mac: string;
+  alias: string;  // Changed from device_name to alias
+  area_id: string;  // Changed from area_name to area_id
+  device_type: string;
+  status: string;  // Changed from status_string to status
+  license_key: string;  // Changed from license to license_key
+  mac_address: string;  // Changed from mac to mac_address
   ip_address: string;
   platform: string;
-  fw_version: string;
+  firmware_version: string;  // Changed from fw_version to firmware_version
   push_version: string;
-  device_type: string;
-  is_biometric: boolean;
-  last_sync: string | null;
+  last_update: string;
   created_at: string;
   updated_at: string;
+  is_biometric: boolean;  // Additional field for our UI logic
 };
 
 const DevicesList: React.FC = () => {
@@ -43,7 +40,7 @@ const DevicesList: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [newDevice, setNewDevice] = useState<Partial<Device>>({
     serial_number: '',
-    device_alias: '',
+    alias: '',
     ip_address: '',
     is_biometric: false,
   });
@@ -69,17 +66,18 @@ const DevicesList: React.FC = () => {
         .from('devices')
         .insert([{
           serial_number: device.serial_number,
-          device_alias: device.device_alias,
+          alias: device.alias,
           ip_address: device.ip_address,
-          is_biometric: device.is_biometric,
-          last_update: new Date().toISOString(),
-          status_string: 'Online',
           device_type: device.is_biometric ? 'Biometric' : 'Standard',
+          status: 'Online',
           platform: 'Windows',
-          fw_version: '1.0.0',
+          firmware_version: '1.0.0',
           push_version: '1.0.0',
-          timezone: 'UTC',
-          mac: '00:00:00:00:00:00'
+          last_update: new Date().toISOString(),
+          mac_address: '00:00:00:00:00:00',
+          license_key: 'default',
+          area_id: 'default',
+          is_biometric: device.is_biometric
         }])
         .select()
         .single();
@@ -92,7 +90,7 @@ const DevicesList: React.FC = () => {
       setIsAddDialogOpen(false);
       setNewDevice({
         serial_number: '',
-        device_alias: '',
+        alias: '',
         ip_address: '',
         is_biometric: false,
       });
@@ -109,7 +107,7 @@ const DevicesList: React.FC = () => {
         .from('devices')
         .update({
           serial_number: updates.serial_number,
-          device_name: updates.device_name,
+          alias: updates.alias,
           ip_address: updates.ip_address,
           is_biometric: updates.is_biometric,
           last_update: new Date().toISOString(),
@@ -154,12 +152,12 @@ const DevicesList: React.FC = () => {
 
   const filteredDevices = devices.filter(device =>
     device.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    device.device_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    device.alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
     device.ip_address.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
-    if (!newDevice.serial_number || !newDevice.device_alias || !newDevice.ip_address) {
+    if (!newDevice.serial_number || !newDevice.alias || !newDevice.ip_address) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -225,7 +223,7 @@ const DevicesList: React.FC = () => {
             {filteredDevices.map((device) => (
               <tr key={device.id} className="border-b">
                 <td className="p-4">{device.serial_number}</td>
-                <td className="p-4">{device.device_name}</td>
+                <td className="p-4">{device.alias}</td>
                 <td className="p-4">{device.ip_address}</td>
                 <td className="p-4">
                   {device.is_biometric ? 'Biometric' : 'Standard'}
@@ -288,9 +286,9 @@ const DevicesList: React.FC = () => {
             <div>
               <Label>Device Name</Label>
               <Input
-                value={newDevice.device_alias}
+                value={newDevice.alias}
                 onChange={(e) =>
-                  setNewDevice({ ...newDevice, device_alias: e.target.value })
+                  setNewDevice({ ...newDevice, alias: e.target.value })
                 }
                 placeholder="Enter device name"
               />
@@ -355,11 +353,11 @@ const DevicesList: React.FC = () => {
               <div>
                 <Label>Device Name</Label>
                 <Input
-                  value={selectedDevice.device_name}
+                  value={selectedDevice.alias}
                   onChange={(e) =>
                     setSelectedDevice({
                       ...selectedDevice,
-                      device_name: e.target.value,
+                      alias: e.target.value,
                     })
                   }
                 />
