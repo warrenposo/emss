@@ -74,8 +74,7 @@ const DevicesList: React.FC = () => {
           push_version: '1.0.0',
           last_update: new Date().toISOString(),
           mac_address: '00:00:00:00:00:00',
-          license_key: 'default',
-          area_id: 'default'
+          license_key: 'default'
         }])
         .select()
         .single();
