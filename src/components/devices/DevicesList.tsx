@@ -75,15 +75,12 @@ const DevicesList: React.FC = () => {
           is_biometric: device.is_biometric,
           last_update: new Date().toISOString(),
           status_string: 'Online',
-          area_name: 'Default Area',
-          update_status: 'Active',
+          device_type: device.is_biometric ? 'Biometric' : 'Standard',
           platform: 'Windows',
           fw_version: '1.0.0',
           push_version: '1.0.0',
-          device_type: device.is_biometric ? 'Biometric' : 'Standard',
           timezone: 'UTC',
-          mac: '00:00:00:00:00:00',
-          license: 'Standard'
+          mac: '00:00:00:00:00:00'
         }])
         .select()
         .single();
