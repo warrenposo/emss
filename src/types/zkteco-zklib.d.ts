@@ -1,8 +1,8 @@
-declare module 'node-zklib' {
+declare module '@zkteco/zklib' {
   interface ZKOptions {
     ip: string;
     port: number;
-    inport: number;
+    inPort: number;
     timeout?: number;
   }
 
@@ -31,8 +31,7 @@ declare module 'node-zklib' {
     getUsers(): Promise<ZKResponse>;
     getInfo(): Promise<DeviceInfo>;
     getAttendance(): Promise<any[]>;
-    connect(): Promise<void>;
   }
 
-  export = ZKLib;
+  export default ZKLib;
 } 
