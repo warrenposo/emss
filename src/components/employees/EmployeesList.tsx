@@ -156,37 +156,42 @@ const EmployeesList: React.FC = () => {
       try {
         // Check if user is authenticated
         const { data: session } = await supabase.auth.getSession();
-        if (!session) {
+        if (!session?.session) {
           throw new Error('You must be logged in to add employees');
         }
 
+        // Prepare the employee data
+        const employeeData = {
+          badge_number: newEmp.badge_number || null,
+          first_name: newEmp.first_name || '',
+          last_name: newEmp.last_name || '',
+          gender: newEmp.gender || null,
+          department_id: newEmp.department_id || null,
+          position_id: newEmp.position_id || null,
+          card_no: newEmp.card_no || null,
+          passport_no: newEmp.passport_no || null,
+          phone: newEmp.phone || null,
+          mobile: newEmp.mobile || null,
+          email: newEmp.email || '',
+          birthday: newEmp.birthday || null,
+          hire_date: newEmp.hire_date || new Date().toISOString().split('T')[0],
+          resign_date: newEmp.resign_date || null,
+          notes: newEmp.notes || null,
+          user_id: session.session.user.id // Add the user_id of the creator
+        };
+
         const { data, error } = await supabase
           .from('employees')
-          .insert([{
-            badge_number: newEmp.badge_number || '',
-            first_name: newEmp.first_name,
-            last_name: newEmp.last_name,
-            gender: newEmp.gender || null,
-            department_id: newEmp.department_id || null,
-            position_id: newEmp.position_id || null,
-            card_no: newEmp.card_no || null,
-            passport_no: newEmp.passport_no || null,
-            phone: newEmp.phone || null,
-            mobile: newEmp.mobile || null,
-            email: newEmp.email || '',
-            birthday: newEmp.birthday || null,
-            hire_date: newEmp.hire_date || new Date().toISOString().split('T')[0],
-            resign_date: newEmp.resign_date || null,
-            notes: newEmp.notes || null
-          }])
-          .select();
+          .insert([employeeData])
+          .select()
+          .single();
           
         if (error) {
           console.error('Error adding employee:', error);
           throw new Error(error.message);
         }
         
-        return data[0];
+        return data;
       } catch (error: any) {
         console.error('Error in mutation:', error);
         throw new Error(error.message);
@@ -217,34 +222,39 @@ const EmployeesList: React.FC = () => {
       
       // Check if user is authenticated
       const { data: session } = await supabase.auth.getSession();
-      if (!session) {
+      if (!session?.session) {
         throw new Error('You must be logged in to update employees');
       }
 
+      // Prepare the update data
+      const updateData = {
+        badge_number: updatedEmp.badge_number || null,
+        first_name: updatedEmp.first_name || '',
+        last_name: updatedEmp.last_name || '',
+        gender: updatedEmp.gender || null,
+        department_id: updatedEmp.department_id || null,
+        position_id: updatedEmp.position_id || null,
+        card_no: updatedEmp.card_no || null,
+        passport_no: updatedEmp.passport_no || null,
+        phone: updatedEmp.phone || null,
+        mobile: updatedEmp.mobile || null,
+        email: updatedEmp.email || '',
+        birthday: updatedEmp.birthday || null,
+        hire_date: updatedEmp.hire_date,
+        resign_date: updatedEmp.resign_date || null,
+        notes: updatedEmp.notes || null,
+        updated_at: new Date().toISOString()
+      };
+
       const { data, error } = await supabase
         .from('employees')
-        .update({
-          badge_number: updatedEmp.badge_number,
-          first_name: updatedEmp.first_name,
-          last_name: updatedEmp.last_name,
-          gender: updatedEmp.gender || null,
-          department_id: updatedEmp.department_id || null,
-          position_id: updatedEmp.position_id || null,
-          card_no: updatedEmp.card_no || null,
-          passport_no: updatedEmp.passport_no || null,
-          phone: updatedEmp.phone || null,
-          mobile: updatedEmp.mobile || null,
-          email: updatedEmp.email,
-          birthday: updatedEmp.birthday || null,
-          hire_date: updatedEmp.hire_date,
-          resign_date: updatedEmp.resign_date || null,
-          notes: updatedEmp.notes || null
-        })
+        .update(updateData)
         .eq('id', updatedEmp.id)
-        .select();
+        .select()
+        .single();
         
       if (error) throw error;
-      return data[0];
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });

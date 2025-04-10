@@ -1,29 +1,53 @@
--- Drop existing RLS policies for employees table
+-- Drop existing RLS policies
 DROP POLICY IF EXISTS "Enable read access for all users" ON employees;
 DROP POLICY IF EXISTS "Enable insert for authenticated users" ON employees;
 DROP POLICY IF EXISTS "Enable update for authenticated users" ON employees;
 DROP POLICY IF EXISTS "Enable delete for authenticated users" ON employees;
 
--- Enable RLS on employees table
-ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Enable read access for all users" ON areas;
+DROP POLICY IF EXISTS "Enable insert for authenticated users" ON areas;
+DROP POLICY IF EXISTS "Enable update for authenticated users" ON areas;
+DROP POLICY IF EXISTS "Enable delete for authenticated users" ON areas;
 
--- Create new policies that allow all authenticated users to perform CRUD operations
+-- Enable RLS on tables
+ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE areas ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for employees table
 CREATE POLICY "Enable read access for all users" 
 ON employees FOR SELECT 
 USING (true);
 
 CREATE POLICY "Enable insert for authenticated users" 
 ON employees FOR INSERT 
-WITH CHECK (auth.role() = 'authenticated');
+WITH CHECK (auth.role() IS NOT NULL);
 
 CREATE POLICY "Enable update for authenticated users" 
 ON employees FOR UPDATE 
-USING (auth.role() = 'authenticated');
+USING (auth.role() IS NOT NULL);
 
 CREATE POLICY "Enable delete for authenticated users" 
 ON employees FOR DELETE 
-USING (auth.role() = 'authenticated');
+USING (auth.role() IS NOT NULL);
 
--- Grant necessary permissions to authenticated users
+-- Create policies for areas table
+CREATE POLICY "Enable read access for all users" 
+ON areas FOR SELECT 
+USING (true);
+
+CREATE POLICY "Enable insert for authenticated users" 
+ON areas FOR INSERT 
+WITH CHECK (auth.role() IS NOT NULL);
+
+CREATE POLICY "Enable update for authenticated users" 
+ON areas FOR UPDATE 
+USING (auth.role() IS NOT NULL);
+
+CREATE POLICY "Enable delete for authenticated users" 
+ON areas FOR DELETE 
+USING (auth.role() IS NOT NULL);
+
+-- Grant necessary permissions
 GRANT ALL ON employees TO authenticated;
-GRANT USAGE ON SEQUENCE employees_id_seq TO authenticated; 
+GRANT ALL ON areas TO authenticated;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated; 
