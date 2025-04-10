@@ -346,126 +346,131 @@ const EmployeesList: React.FC = () => {
 
   return (
     <div className="container mx-auto py-6 space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Employees</h1>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Employee
-        </Button>
-      </div>
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Employees</h1>
+          <Button 
+            onClick={() => setIsAddDialogOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-md flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="font-medium text-base">Add New Employee</span>
+          </Button>
+        </div>
 
-      <div className="flex gap-4 flex-wrap">
-        <Input
-          placeholder="Search by ID..."
-          value={searchId}
-          onChange={(e) => setSearchId(e.target.value)}
-          className="max-w-[200px]"
-        />
-        <Input
-          placeholder="Search by name..."
-          value={searchName}
-          onChange={(e) => setSearchName(e.target.value)}
-          className="max-w-[200px]"
-        />
-        <Select value={searchDepartment} onValueChange={setSearchDepartment}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select department" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all_departments">All Departments</SelectItem>
-            {departments?.map((dept) => (
-              <SelectItem key={dept.id} value={dept.id}>
-                {dept.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+        <div className="flex gap-4 flex-wrap mb-6">
+          <Input
+            placeholder="Search by ID..."
+            value={searchId}
+            onChange={(e) => setSearchId(e.target.value)}
+            className="max-w-[200px]"
+          />
+          <Input
+            placeholder="Search by name..."
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+            className="max-w-[200px]"
+          />
+          <Select value={searchDepartment} onValueChange={setSearchDepartment}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all_departments">All Departments</SelectItem>
+              {departments?.map((dept) => (
+                <SelectItem key={dept.id} value={dept.id}>
+                  {dept.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Department</TableHead>
-              <TableHead>Position</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoadingEmployees ? (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  <div className="flex justify-center items-center">
-                    <Loader2 className="w-6 h-6 animate-spin mr-2" />
-                    Loading employees...
-                  </div>
-                </TableCell>
+                <TableHead>ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Position</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ) : employeesData?.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8">
-                  No employees found
-                </TableCell>
-              </TableRow>
-            ) : (
-              employeesData?.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell>{employee.id}</TableCell>
-                  <TableCell>{employee.name}</TableCell>
-                  <TableCell>{employee.department}</TableCell>
-                  <TableCell>{employee.position}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(employee)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(employee)}
-                      >
-                        <Trash className="w-4 h-4" />
-                      </Button>
+            </TableHeader>
+            <TableBody>
+              {isLoadingEmployees ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8">
+                    <div className="flex justify-center items-center">
+                      <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                      Loading employees...
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {employeesData?.length > 0 && (
-        <div className="flex justify-between items-center mt-4">
-          <div>
-            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, employeesData.length)} of {employeesData.length} entries
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => p - 1)}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(p => p + 1)}
-              disabled={(currentPage * pageSize) >= employeesData.length}
-            >
-              Next
-            </Button>
-          </div>
+              ) : employeesData?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8">
+                    No employees found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                employeesData?.map((employee) => (
+                  <TableRow key={employee.id}>
+                    <TableCell>{employee.id}</TableCell>
+                    <TableCell>{employee.name}</TableCell>
+                    <TableCell>{employee.department}</TableCell>
+                    <TableCell>{employee.position}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(employee)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(employee)}
+                        >
+                          <Trash className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
+
+        {employeesData?.length > 0 && (
+          <div className="flex justify-between items-center mt-4">
+            <div>
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, employeesData.length)} of {employeesData.length} entries
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => p - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={(currentPage * pageSize) >= employeesData.length}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <AddEmployeeDialog
         open={isAddDialogOpen}
