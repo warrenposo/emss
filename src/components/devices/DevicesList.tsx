@@ -74,7 +74,8 @@ const DevicesList: React.FC = () => {
           push_version: '1.0.0',
           last_update: new Date().toISOString(),
           mac_address: '00:00:00:00:00:00',
-          license_key: 'default'
+          license_key: 'default',
+          area_id: null  // Set to null since we don't have an area yet
         }])
         .select()
         .single();
@@ -153,7 +154,8 @@ const DevicesList: React.FC = () => {
     device.ip_address.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleAdd = () => {
+  const handleAddDevice = () => {
+    // Validate required fields
     if (!newDevice.serial_number || !newDevice.alias || !newDevice.ip_address) {
       toast.error('Please fill in all required fields');
       return;
@@ -322,7 +324,9 @@ const DevicesList: React.FC = () => {
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAdd}>Add Device</Button>
+            <Button onClick={handleAddDevice} disabled={addDeviceMutation.isPending}>
+              {addDeviceMutation.isPending ? 'Adding...' : 'Add Device'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
