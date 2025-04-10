@@ -70,7 +70,7 @@ const DevicesList: React.FC = () => {
         .from('devices')
         .insert([{
           serial_number: device.serial_number,
-          device_alias: device.device_alias,
+          device_name: device.device_alias,
           ip_address: device.ip_address,
           is_biometric: device.is_biometric,
           last_update: new Date().toISOString(),
