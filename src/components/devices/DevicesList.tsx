@@ -70,7 +70,7 @@ const DevicesList: React.FC = () => {
         .from('devices')
         .insert([{
           serial_number: device.serial_number,
-          device_alias: device.device_alias,
+          device_name: device.device_alias,
           ip_address: device.ip_address,
           is_biometric: device.is_biometric,
           last_update: new Date().toISOString(),
@@ -80,7 +80,10 @@ const DevicesList: React.FC = () => {
           fw_version: '1.0.0',
           push_version: '1.0.0',
           timezone: 'UTC',
-          mac: '00:00:00:00:00:00'
+          mac: '00:00:00:00:00:00',
+          area_name: 'Default Area',
+          update_status: 'Active',
+          license: 'Standard'
         }])
         .select()
         .single();
