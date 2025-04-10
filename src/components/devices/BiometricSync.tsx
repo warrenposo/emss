@@ -23,7 +23,7 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
       setIsSyncing(true);
       try {
         // Call the API endpoint to sync with the biometric device
-        const response = await fetch('/api/attendance/sync', {
+        const response = await fetch('/api/devices/sync', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -31,40 +31,60 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
           body: JSON.stringify({
             device_id: deviceId,
             ip_address: ipAddress,
+            port: 4370, // Default ZKTeco port
+            timeout: 5000 // 5 seconds timeout
           }),
         });
 
         if (!response.ok) {
-          throw new Error('Failed to sync with biometric device');
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to sync with biometric device');
         }
+
+        const data = await response.json();
 
         // Update the last sync timestamp in the devices table
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('devices')
-          .update({ last_sync: new Date().toISOString() })
+          .update({ 
+            last_update: new Date().toISOString(),
+            status: 'Online'
+          })
           .eq('id', deviceId);
 
-        if (error) {
-          throw error;
+        if (updateError) {
+          throw updateError;
         }
 
-        return response.json();
+        return data;
       } finally {
         setIsSyncing(false);
       }
     },
-    onSuccess: () => {
-      toast.success('Biometric data synced successfully');
+    onSuccess: (data) => {
+      toast.success(`Biometric data synced successfully. ${data.records || 0} records processed.`);
       setIsDialogOpen(false);
       onSuccess?.();
     },
     onError: (error: Error) => {
       toast.error(`Failed to sync biometric data: ${error.message}`);
+      // Update device status to offline if connection failed
+      supabase
+        .from('devices')
+        .update({ 
+          status: 'Offline',
+          last_update: new Date().toISOString()
+        })
+        .eq('id', deviceId)
+        .then(() => {
+          console.log('Device status updated to offline');
+        })
+        .catch(console.error);
     },
   });
 
   const handleSync = async () => {
-    await syncMutation.mutateAsync();
+    setIsDialogOpen(true);
   };
 
   return (
@@ -72,39 +92,37 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsDialogOpen(true)}
+        className="flex items-center gap-2"
+        onClick={handleSync}
         disabled={isSyncing}
       >
-        <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+        <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
         {isSyncing ? 'Syncing...' : 'Sync'}
       </Button>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sync Biometric Data</DialogTitle>
+            <DialogTitle>Sync Biometric Device</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-gray-500">
-              This will sync attendance data from the biometric device at {ipAddress}.
-              The process may take a few minutes.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                disabled={isSyncing}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSync}
-                disabled={isSyncing}
-              >
-                {isSyncing ? 'Syncing...' : 'Start Sync'}
-              </Button>
+            <div>
+              <Label>Device IP</Label>
+              <Input value={ipAddress} disabled />
             </div>
+            <p className="text-sm text-gray-500">
+              This will sync attendance records from the biometric device. 
+              Make sure the device is powered on and connected to the network.
+            </p>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSyncing}>
+              Cancel
+            </Button>
+            <Button onClick={() => syncMutation.mutate()} disabled={isSyncing}>
+              {isSyncing ? 'Syncing...' : 'Start Sync'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
