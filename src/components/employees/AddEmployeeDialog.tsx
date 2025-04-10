@@ -112,13 +112,30 @@ const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({ open, onOpenChang
     }
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!newEmployee.first_name || !newEmployee.last_name) {
       toast.error('Please fill in at least the first and last name');
       return;
     }
-    addEmployeeMutation.mutate(newEmployee);
+
+    // Ensure date fields are properly formatted or null
+    const employeeData = {
+      ...newEmployee,
+      birthday: newEmployee.birthday || null,
+      hire_date: newEmployee.hire_date || new Date().toISOString().split('T')[0],
+      resign_date: newEmployee.resign_date || null
+    };
+
+    try {
+      await addEmployeeMutation.mutateAsync(employeeData);
+      toast.success('Employee added successfully');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error adding employee:', error);
+      toast.error('Failed to add employee');
+    }
   };
 
   return (
@@ -250,8 +267,8 @@ const AddEmployeeDialog: React.FC<AddEmployeeDialogProps> = ({ open, onOpenChang
               <Input
                 id="birthday"
                 type="date"
-                value={newEmployee.birthday}
-                onChange={(e) => setNewEmployee({ ...newEmployee, birthday: e.target.value })}
+                value={newEmployee.birthday || ''}
+                onChange={(e) => setNewEmployee({ ...newEmployee, birthday: e.target.value || null })}
               />
             </div>
             <div className="space-y-2">
