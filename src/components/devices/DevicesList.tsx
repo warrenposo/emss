@@ -18,7 +18,7 @@ type Device = {
   serial_number: string;
   alias: string;  // Changed from device_name to alias
   area_id: string;  // Changed from area_name to area_id
-  device_type: string;
+  device_type: string;  // This will be 'Biometric' or 'Standard'
   status: string;  // Changed from status_string to status
   license_key: string;  // Changed from license to license_key
   mac_address: string;  // Changed from mac to mac_address
@@ -29,7 +29,6 @@ type Device = {
   last_update: string;
   created_at: string;
   updated_at: string;
-  is_biometric: boolean;  // Additional field for our UI logic
 };
 
 const DevicesList: React.FC = () => {
@@ -42,7 +41,7 @@ const DevicesList: React.FC = () => {
     serial_number: '',
     alias: '',
     ip_address: '',
-    is_biometric: false,
+    device_type: 'Standard',
   });
 
   const queryClient = useQueryClient();
@@ -68,7 +67,7 @@ const DevicesList: React.FC = () => {
           serial_number: device.serial_number,
           alias: device.alias,
           ip_address: device.ip_address,
-          device_type: device.is_biometric ? 'Biometric' : 'Standard',
+          device_type: device.device_type,
           status: 'Online',
           platform: 'Windows',
           firmware_version: '1.0.0',
@@ -76,8 +75,7 @@ const DevicesList: React.FC = () => {
           last_update: new Date().toISOString(),
           mac_address: '00:00:00:00:00:00',
           license_key: 'default',
-          area_id: 'default',
-          is_biometric: device.is_biometric
+          area_id: 'default'
         }])
         .select()
         .single();
@@ -92,7 +90,7 @@ const DevicesList: React.FC = () => {
         serial_number: '',
         alias: '',
         ip_address: '',
-        is_biometric: false,
+        device_type: 'Standard',
       });
       toast.success('Device added successfully');
     },
@@ -109,7 +107,7 @@ const DevicesList: React.FC = () => {
           serial_number: updates.serial_number,
           alias: updates.alias,
           ip_address: updates.ip_address,
-          is_biometric: updates.is_biometric,
+          device_type: updates.device_type,
           last_update: new Date().toISOString(),
         })
         .eq('id', id)
@@ -226,13 +224,13 @@ const DevicesList: React.FC = () => {
                 <td className="p-4">{device.alias}</td>
                 <td className="p-4">{device.ip_address}</td>
                 <td className="p-4">
-                  {device.is_biometric ? 'Biometric' : 'Standard'}
+                  {device.device_type}
                 </td>
                 <td className="p-4">
                   {new Date(device.last_update).toLocaleString()}
                 </td>
                 <td className="p-4 space-x-2">
-                  {device.is_biometric && (
+                  {device.device_type === 'Biometric' && (
                     <BiometricSync
                       deviceId={device.id}
                       ipAddress={device.ip_address}
@@ -306,17 +304,17 @@ const DevicesList: React.FC = () => {
             <div>
               <Label>Device Type</Label>
               <Select
-                value={newDevice.is_biometric ? 'biometric' : 'standard'}
+                value={newDevice.device_type}
                 onValueChange={(value) =>
-                  setNewDevice({ ...newDevice, is_biometric: value === 'biometric' })
+                  setNewDevice({ ...newDevice, device_type: value })
                 }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="biometric">Biometric</SelectItem>
+                  <SelectItem value="Standard">Standard</SelectItem>
+                  <SelectItem value="Biometric">Biometric</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -377,11 +375,11 @@ const DevicesList: React.FC = () => {
               <div>
                 <Label>Device Type</Label>
                 <Select
-                  value={selectedDevice.is_biometric ? 'biometric' : 'standard'}
+                  value={selectedDevice.device_type}
                   onValueChange={(value) =>
                     setSelectedDevice({
                       ...selectedDevice,
-                      is_biometric: value === 'biometric',
+                      device_type: value,
                     })
                   }
                 >
@@ -389,8 +387,8 @@ const DevicesList: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="standard">Standard</SelectItem>
-                    <SelectItem value="biometric">Biometric</SelectItem>
+                    <SelectItem value="Standard">Standard</SelectItem>
+                    <SelectItem value="Biometric">Biometric</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
