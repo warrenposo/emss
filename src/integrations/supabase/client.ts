@@ -16,8 +16,56 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    storage: localStorage,
-    detectSessionInUrl: false // Disable session detection in URL to prevent navigation issues
+    storage: {
+      getItem: (key) => {
+        try {
+          // Try sessionStorage as fallback if localStorage fails
+          const value = localStorage.getItem(key) || sessionStorage.getItem(key);
+          if (!value && key.includes('supabase.auth.token')) {
+            console.log('No auth token found in storage');
+          }
+          return value;
+        } catch (error) {
+          console.error('Error accessing storage:', error);
+          // Try sessionStorage as fallback
+          try {
+            return sessionStorage.getItem(key);
+          } catch (sessionError) {
+            console.error('Error accessing sessionStorage:', sessionError);
+            return null;
+          }
+        }
+      },
+      setItem: (key, value) => {
+        try {
+          localStorage.setItem(key, value);
+        } catch (error) {
+          console.error('Error setting localStorage:', error);
+          // Try sessionStorage as fallback
+          try {
+            sessionStorage.setItem(key, value);
+          } catch (sessionError) {
+            console.error('Error setting sessionStorage:', sessionError);
+          }
+        }
+      },
+      removeItem: (key) => {
+        try {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key); // Clean up both storages
+        } catch (error) {
+          console.error('Error removing from storage:', error);
+        }
+      }
+    },
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    debug: true // Enable debug mode to help troubleshoot
+  },
+  persistSession: true,
+  // Add request timeouts
+  realtime: {
+    timeout: 60000
   }
 });
 
@@ -34,54 +82,15 @@ supabase.from('departments').select('count', { count: 'exact', head: true }).the
 });
 
 // Check if user is authenticated
-supabase.auth.onAuthStateChange(async (event, session) => {
-  console.log('Auth state changed:', event);
-  if (session?.user) {
-    console.log('User authenticated:', session.user.email);
-    
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
+  if (event === 'SIGNED_OUT') {
+    // Clear all storage on sign out
     try {
-      // First check if the user profile exists
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .maybeSingle();
-        
-      if (profileError) {
-        console.error('Error checking user profile:', profileError);
-      }
-      
-      // If profile doesn't exist, create one
-      if (!profile) {
-        console.log('Creating new profile for user:', session.user.id);
-        const { error: insertError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: session.user.id,
-            first_name: session.user.user_metadata?.first_name || 'User',
-            last_name: session.user.user_metadata?.last_name || '',
-            role: 'administrator', // Default to administrator role
-            last_login: new Date().toISOString()
-          });
-          
-        if (insertError) {
-          console.error('Error creating user profile:', insertError);
-        } else {
-          console.log('Created user profile successfully');
-        }
-      } else {
-        // Update last login
-        const { error: updateError } = await supabase
-          .from('user_profiles')
-          .update({ last_login: new Date().toISOString() })
-          .eq('id', session.user.id);
-          
-        if (updateError) {
-          console.error('Error updating last login:', updateError);
-        }
-      }
-    } catch (err) {
-      console.error('Error in auth state change handler:', err);
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (error) {
+      console.error('Error clearing storage:', error);
     }
   }
 });
