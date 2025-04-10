@@ -154,10 +154,16 @@ const EmployeesList: React.FC = () => {
       console.log('Adding employee:', newEmp);
       
       try {
+        // Check if user is authenticated
+        const { data: session } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error('You must be logged in to add employees');
+        }
+
         const { data, error } = await supabase
           .from('employees')
           .insert([{
-            badge_number: newEmp.badge_number || null,
+            badge_number: newEmp.badge_number || '',
             first_name: newEmp.first_name,
             last_name: newEmp.last_name,
             gender: newEmp.gender || null,
@@ -167,7 +173,7 @@ const EmployeesList: React.FC = () => {
             passport_no: newEmp.passport_no || null,
             phone: newEmp.phone || null,
             mobile: newEmp.mobile || null,
-            email: newEmp.email || null,
+            email: newEmp.email || '',
             birthday: newEmp.birthday || null,
             hire_date: newEmp.hire_date || new Date().toISOString().split('T')[0],
             resign_date: newEmp.resign_date || null,
@@ -190,6 +196,14 @@ const EmployeesList: React.FC = () => {
       toast.success('Employee added successfully');
       setIsAddDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      setNewEmployee({
+        id: '',
+        badge_number: '',
+        first_name: '',
+        last_name: '',
+        email: '',
+        hire_date: new Date().toISOString().split('T')[0],
+      });
     },
     onError: (error: any) => {
       console.error('Mutation error:', error);
@@ -201,6 +215,12 @@ const EmployeesList: React.FC = () => {
     mutationFn: async (updatedEmp: Employee) => {
       console.log('Updating employee:', updatedEmp);
       
+      // Check if user is authenticated
+      const { data: session } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You must be logged in to update employees');
+      }
+
       const { data, error } = await supabase
         .from('employees')
         .update({
@@ -229,16 +249,12 @@ const EmployeesList: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       setIsEditDialogOpen(false);
+      setSelectedEmployee(null);
       toast.success('Employee updated successfully');
     },
     onError: (error: any) => {
       console.error('Error updating employee:', error);
-      
-      if (error.message && error.message.includes("row-level security policy")) {
-        toast.error("Permission denied: You don't have access to update employees. Please contact your administrator.");
-      } else {
-        toast.error(`Failed to update employee: ${error.message || 'Unknown error'}`);
-      }
+      toast.error(`Failed to update employee: ${error.message}`);
     }
   });
 
@@ -246,6 +262,12 @@ const EmployeesList: React.FC = () => {
     mutationFn: async (id: string) => {
       console.log('Deleting employee with ID:', id);
       
+      // Check if user is authenticated
+      const { data: session } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('You must be logged in to delete employees');
+      }
+
       const { error } = await supabase
         .from('employees')
         .delete()
@@ -261,12 +283,7 @@ const EmployeesList: React.FC = () => {
     },
     onError: (error: any) => {
       console.error('Error deleting employee:', error);
-      
-      if (error.message && error.message.includes("row-level security policy")) {
-        toast.error("Permission denied: You don't have access to delete employees. Please contact your administrator.");
-      } else {
-        toast.error(`Failed to delete employee: ${error.message || 'Unknown error'}`);
-      }
+      toast.error(`Failed to delete employee: ${error.message}`);
     }
   });
 
