@@ -16,12 +16,11 @@ import BiometricSync from './BiometricSync';
 type Device = {
   id: string;
   serial_number: string;
-  device_alias: string;
+  device_name: string;
   last_update: string;
   area_name: string;
   update_status: string;
   license: string;
-  device_name: string;
   status_string: string;
   timezone: string;
   mac: string;
@@ -44,7 +43,7 @@ const DevicesList: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [newDevice, setNewDevice] = useState<Partial<Device>>({
     serial_number: '',
-    device_alias: '',
+    device_name: '',
     ip_address: '',
     is_biometric: false,
   });
@@ -70,7 +69,7 @@ const DevicesList: React.FC = () => {
         .from('devices')
         .insert([{
           serial_number: device.serial_number,
-          device_alias: device.device_alias,
+          device_name: device.device_name,
           ip_address: device.ip_address,
           is_biometric: device.is_biometric,
           last_update: new Date().toISOString(),
@@ -93,7 +92,7 @@ const DevicesList: React.FC = () => {
       setIsAddDialogOpen(false);
       setNewDevice({
         serial_number: '',
-        device_alias: '',
+        device_name: '',
         ip_address: '',
         is_biometric: false,
       });
@@ -110,7 +109,7 @@ const DevicesList: React.FC = () => {
         .from('devices')
         .update({
           serial_number: updates.serial_number,
-          device_alias: updates.device_alias,
+          device_name: updates.device_name,
           ip_address: updates.ip_address,
           is_biometric: updates.is_biometric,
           last_update: new Date().toISOString(),
@@ -155,12 +154,12 @@ const DevicesList: React.FC = () => {
 
   const filteredDevices = devices.filter(device =>
     device.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    device.device_alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    device.device_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     device.ip_address.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
-    if (!newDevice.serial_number || !newDevice.device_alias || !newDevice.ip_address) {
+    if (!newDevice.serial_number || !newDevice.device_name || !newDevice.ip_address) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -215,7 +214,7 @@ const DevicesList: React.FC = () => {
           <thead>
             <tr className="border-b">
               <th className="p-4 text-left">Serial Number</th>
-              <th className="p-4 text-left">Device Alias</th>
+              <th className="p-4 text-left">Device Name</th>
               <th className="p-4 text-left">IP Address</th>
               <th className="p-4 text-left">Type</th>
               <th className="p-4 text-left">Last Update</th>
@@ -226,7 +225,7 @@ const DevicesList: React.FC = () => {
             {filteredDevices.map((device) => (
               <tr key={device.id} className="border-b">
                 <td className="p-4">{device.serial_number}</td>
-                <td className="p-4">{device.device_alias}</td>
+                <td className="p-4">{device.device_name}</td>
                 <td className="p-4">{device.ip_address}</td>
                 <td className="p-4">
                   {device.is_biometric ? 'Biometric' : 'Standard'}
@@ -289,9 +288,9 @@ const DevicesList: React.FC = () => {
             <div>
               <Label>Device Name</Label>
               <Input
-                value={newDevice.device_alias}
+                value={newDevice.device_name}
                 onChange={(e) =>
-                  setNewDevice({ ...newDevice, device_alias: e.target.value })
+                  setNewDevice({ ...newDevice, device_name: e.target.value })
                 }
                 placeholder="Enter device name"
               />
@@ -354,13 +353,13 @@ const DevicesList: React.FC = () => {
                 />
               </div>
               <div>
-                <Label>Device Alias</Label>
+                <Label>Device Name</Label>
                 <Input
-                  value={selectedDevice.device_alias}
+                  value={selectedDevice.device_name}
                   onChange={(e) =>
                     setSelectedDevice({
                       ...selectedDevice,
-                      device_alias: e.target.value,
+                      device_name: e.target.value,
                     })
                   }
                 />
