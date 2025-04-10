@@ -417,7 +417,7 @@ const EmployeesList: React.FC = () => {
                 employeesData?.map((employee) => (
                   <TableRow key={employee.id}>
                     <TableCell>{employee.id}</TableCell>
-                    <TableCell>{employee.name}</TableCell>
+                    <TableCell>{`${employee.first_name} ${employee.last_name}`}</TableCell>
                     <TableCell>{employee.department}</TableCell>
                     <TableCell>{employee.position}</TableCell>
                     <TableCell>
