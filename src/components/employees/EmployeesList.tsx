@@ -177,8 +177,13 @@ const EmployeesList: React.FC = () => {
           hire_date: newEmp.hire_date || new Date().toISOString().split('T')[0],
           resign_date: newEmp.resign_date || null,
           notes: newEmp.notes || null,
-          user_id: session.session.user.id // Add the user_id of the creator
+          user_id: session.session.user.id
         };
+
+        // Validate gender value
+        if (employeeData.gender && !['male', 'female', 'other'].includes(employeeData.gender.toLowerCase())) {
+          throw new Error('Invalid gender value. Must be "male", "female", or "other"');
+        }
 
         const { data, error } = await supabase
           .from('employees')
@@ -582,17 +587,17 @@ const EmployeesList: React.FC = () => {
             <div className="space-y-2">
               <Label htmlFor="gender">Gender</Label>
               <Select
-                value={newEmployee.gender || "not_specified"}
-                onValueChange={(value) => setNewEmployee({...newEmployee, gender: value === "not_specified" ? "" : value})}
+                value={newEmployee.gender || ""}
+                onValueChange={(value) => setNewEmployee({...newEmployee, gender: value})}
               >
                 <SelectTrigger id="gender">
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="not_specified">Select gender</SelectItem>
-                  <SelectItem value="Male">Male</SelectItem>
-                  <SelectItem value="Female">Female</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="">Not Specified</SelectItem>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -732,17 +737,17 @@ const EmployeesList: React.FC = () => {
             <div className="space-y-2">
               <Label htmlFor="edit_gender">Gender</Label>
               <Select
-                value={newEmployee.gender || "not_specified"}
-                onValueChange={(value) => setNewEmployee({...newEmployee, gender: value === "not_specified" ? "" : value})}
+                value={newEmployee.gender || ""}
+                onValueChange={(value) => setNewEmployee({...newEmployee, gender: value})}
               >
                 <SelectTrigger id="edit_gender">
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="not_specified">Select gender</SelectItem>
-                  <SelectItem value="Male">Male</SelectItem>
-                  <SelectItem value="Female">Female</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
+                  <SelectItem value="">Not Specified</SelectItem>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>

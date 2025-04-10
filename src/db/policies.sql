@@ -9,6 +9,11 @@ DROP POLICY IF EXISTS "Enable insert for authenticated users" ON areas;
 DROP POLICY IF EXISTS "Enable update for authenticated users" ON areas;
 DROP POLICY IF EXISTS "Enable delete for authenticated users" ON areas;
 
+-- Update gender check constraint
+ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_gender_check;
+ALTER TABLE employees ADD CONSTRAINT employees_gender_check 
+  CHECK (gender IS NULL OR LOWER(gender) IN ('male', 'female', 'other'));
+
 -- Enable RLS on tables
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE areas ENABLE ROW LEVEL SECURITY;
