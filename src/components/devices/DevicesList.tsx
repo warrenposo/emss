@@ -1,299 +1,387 @@
-
 import React, { useState } from 'react';
 import { 
   Search, Edit, Trash2, 
   RefreshCw, DownloadCloud, Database, Menu 
 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import BiometricSync from './BiometricSync';
+
+type Device = {
+  id: string;
+  serial_number: string;
+  device_alias: string;
+  last_update: string;
+  area_name: string;
+  update_status: string;
+  license: string;
+  device_name: string;
+  status_string: string;
+  timezone: string;
+  mac: string;
+  ip_address: string;
+  platform: string;
+  fw_version: string;
+  push_version: string;
+  device_type: string;
+  is_biometric: boolean;
+  last_sync: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 const DevicesList: React.FC = () => {
-  const [searchValue, setSearchValue] = useState('');
-
-  // Mock devices data
-  const devices = [
-    {
-      id: 1,
-      serialNumber: 'AC2200345678',
-      deviceAlias: 'Main Entrance',
-      lastUpdate: '2023-03-26 09:15:22',
-      areaName: 'Main Building',
-      updateStatus: 'Updated',
-      licence: 'Licensed',
-      deviceName: 'FingerPrint Scanner A101',
-      statusString: 'Online',
-      timezone: 'Africa/Nairobi',
-      mac: '00:1A:2B:3C:4D:5E',
-      ipAddress: '192.168.1.100',
-      platform: 'Linux',
-      fwVersion: '2.1.5',
-      pushVersion: '1.0.3'
-    },
-    {
-      id: 2,
-      serialNumber: 'AC2200345679',
-      deviceAlias: 'Side Entrance',
-      lastUpdate: '2023-03-26 09:10:15',
-      areaName: 'East Wing',
-      updateStatus: 'Updated',
-      licence: 'Licensed',
-      deviceName: 'FingerPrint Scanner A101',
-      statusString: 'Online',
-      timezone: 'Africa/Nairobi',
-      mac: '00:1A:2B:3C:4D:5F',
-      ipAddress: '192.168.1.101',
-      platform: 'Linux',
-      fwVersion: '2.1.5',
-      pushVersion: '1.0.3'
-    },
-    {
-      id: 3,
-      serialNumber: 'AC2200345680',
-      deviceAlias: 'IT Department',
-      lastUpdate: '2023-03-26 08:45:10',
-      areaName: 'Second Floor',
-      updateStatus: 'Updated',
-      licence: 'Licensed',
-      deviceName: 'Card Reader X200',
-      statusString: 'Online',
-      timezone: 'Africa/Nairobi',
-      mac: '00:1A:2B:3C:4D:60',
-      ipAddress: '192.168.1.102',
-      platform: 'Linux',
-      fwVersion: '1.9.2',
-      pushVersion: '1.0.2'
-    },
-    {
-      id: 4,
-      serialNumber: 'AC2200345681',
-      deviceAlias: 'Finance Department',
-      lastUpdate: '2023-03-25 17:30:05',
-      areaName: 'Third Floor',
-      updateStatus: 'Pending',
-      licence: 'Licensed',
-      deviceName: 'FingerPrint Scanner A101',
-      statusString: 'Offline',
-      timezone: 'Africa/Nairobi',
-      mac: '00:1A:2B:3C:4D:61',
-      ipAddress: '192.168.1.103',
-      platform: 'Linux',
-      fwVersion: '2.1.4',
-      pushVersion: '1.0.3'
-    },
-    {
-      id: 5,
-      serialNumber: 'AC2200345682',
-      deviceAlias: 'HR Department',
-      lastUpdate: '2023-03-26 09:00:18',
-      areaName: 'First Floor',
-      updateStatus: 'Updated',
-      licence: 'Unlicensed',
-      deviceName: 'Card Reader X200',
-      statusString: 'Online',
-      timezone: 'Africa/Nairobi',
-      mac: '00:1A:2B:3C:4D:62',
-      ipAddress: '192.168.1.104',
-      platform: 'Linux',
-      fwVersion: '1.9.2',
-      pushVersion: '1.0.2'
-    }
-  ];
-
-  // Filter devices based on search input
-  const filteredDevices = devices.filter(device => {
-    return (
-      device.serialNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
-      device.deviceAlias.toLowerCase().includes(searchValue.toLowerCase()) ||
-      device.deviceName.toLowerCase().includes(searchValue.toLowerCase()) ||
-      device.areaName.toLowerCase().includes(searchValue.toLowerCase()) ||
-      device.ipAddress.toLowerCase().includes(searchValue.toLowerCase())
-    );
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [newDevice, setNewDevice] = useState<Partial<Device>>({
+    serial_number: '',
+    device_alias: '',
+    ip_address: '',
+    is_biometric: false,
   });
 
+  const queryClient = useQueryClient();
+
+  const { data: devices = [], isLoading } = useQuery({
+    queryKey: ['devices'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('devices')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data as Device[];
+    },
+  });
+
+  const addDeviceMutation = useMutation({
+    mutationFn: async (device: Partial<Device>) => {
+      const { data, error } = await supabase
+        .from('devices')
+        .insert([device])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as Device;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      setIsAddDialogOpen(false);
+      setNewDevice({
+        serial_number: '',
+        device_alias: '',
+        ip_address: '',
+        is_biometric: false,
+      });
+    },
+  });
+
+  const updateDeviceMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Device> }) => {
+      const { data, error } = await supabase
+        .from('devices')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data as Device;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      setIsEditDialogOpen(false);
+      setSelectedDevice(null);
+    },
+  });
+
+  const deleteDeviceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('devices')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      setIsDeleteDialogOpen(false);
+      setSelectedDevice(null);
+    },
+  });
+
+  const filteredDevices = devices.filter(device =>
+    device.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    device.device_alias.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    device.ip_address.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAdd = () => {
+    addDeviceMutation.mutate(newDevice);
+  };
+
+  const handleEdit = () => {
+    if (selectedDevice) {
+      updateDeviceMutation.mutate({
+        id: selectedDevice.id,
+        updates: selectedDevice,
+      });
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedDevice) {
+      deleteDeviceMutation.mutate(selectedDevice.id);
+    }
+  };
+
+  if (isLoading) {
+    return <div>Loading devices...</div>;
+  }
+
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="p-5">
-          <h2 className="text-xl font-semibold mb-5">Device Management</h2>
-          
-          {/* Action buttons */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            <button className="btn-outline flex items-center gap-1">
-              <Edit size={16} />
-              <span>Edit License</span>
-            </button>
-            <button className="btn-outline flex items-center gap-1">
-              <Edit size={16} />
-              <span>Edit Device</span>
-            </button>
-            <div className="relative">
-              <button className="btn-outline flex items-center gap-1">
-                <Database size={16} />
-                <span>Clear Data</span>
-                <Menu size={16} />
-              </button>
-            </div>
-            <div className="relative">
-              <button className="btn-outline flex items-center gap-1">
-                <Edit size={16} />
-                <span>Device Name</span>
-                <Menu size={16} />
-              </button>
-            </div>
-            <div className="relative">
-              <button className="btn-outline flex items-center gap-1">
-                <DownloadCloud size={16} />
-                <span>Transfer Data</span>
-                <Menu size={16} />
-              </button>
-            </div>
-            <div className="relative">
-              <button className="btn-outline flex items-center gap-1">
-                <RefreshCw size={16} />
-                <span>Clear Data</span>
-                <Menu size={16} />
-              </button>
-            </div>
-            <button className="btn-outline flex items-center gap-1">
-              <Trash2 size={16} />
-              <span>Delete</span>
-            </button>
-          </div>
-          
-          {/* Search filter */}
-          <div className="flex gap-2 mb-6">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="Search devices by serial number, name, alias or IP..."
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                className="form-input"
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Devices</h2>
+        <Button onClick={() => setIsAddDialogOpen(true)}>
+          Add Device
+        </Button>
+      </div>
+
+      <Input
+        placeholder="Search devices..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="max-w-sm"
+      />
+
+      <div className="border rounded-lg">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b">
+              <th className="p-4 text-left">Serial Number</th>
+              <th className="p-4 text-left">Device Alias</th>
+              <th className="p-4 text-left">IP Address</th>
+              <th className="p-4 text-left">Type</th>
+              <th className="p-4 text-left">Last Update</th>
+              <th className="p-4 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredDevices.map((device) => (
+              <tr key={device.id} className="border-b">
+                <td className="p-4">{device.serial_number}</td>
+                <td className="p-4">{device.device_alias}</td>
+                <td className="p-4">{device.ip_address}</td>
+                <td className="p-4">
+                  {device.is_biometric ? 'Biometric' : 'Standard'}
+                </td>
+                <td className="p-4">
+                  {new Date(device.last_update).toLocaleString()}
+                </td>
+                <td className="p-4 space-x-2">
+                  {device.is_biometric && (
+                    <BiometricSync
+                      deviceId={device.id}
+                      ipAddress={device.ip_address}
+                      onSuccess={() => {
+                        queryClient.invalidateQueries({ queryKey: ['devices'] });
+                      }}
+                    />
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedDevice(device);
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setSelectedDevice(device);
+                      setIsDeleteDialogOpen(true);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add Device Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Device</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Serial Number</Label>
+              <Input
+                value={newDevice.serial_number}
+                onChange={(e) =>
+                  setNewDevice({ ...newDevice, serial_number: e.target.value })
+                }
               />
             </div>
-            <button className="btn-primary flex items-center gap-1 flex-shrink-0">
-              <Search size={16} />
-              <span>Search</span>
-            </button>
+            <div>
+              <Label>Device Alias</Label>
+              <Input
+                value={newDevice.device_alias}
+                onChange={(e) =>
+                  setNewDevice({ ...newDevice, device_alias: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>IP Address</Label>
+              <Input
+                value={newDevice.ip_address}
+                onChange={(e) =>
+                  setNewDevice({ ...newDevice, ip_address: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Device Type</Label>
+              <Select
+                value={newDevice.is_biometric ? 'biometric' : 'standard'}
+                onValueChange={(value) =>
+                  setNewDevice({ ...newDevice, is_biometric: value === 'biometric' })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="biometric">Biometric</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          
-          {/* Devices table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Serial Number
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Device Alias
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Update
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Area Name
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Update Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    License
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Device Name
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Timezone
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    MAC
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    IP Address
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Platform
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    FW Version
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Push Version
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredDevices.map((device) => (
-                  <tr key={device.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {device.serialNumber}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.deviceAlias}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.lastUpdate}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.areaName}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        device.updateStatus === 'Updated' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {device.updateStatus}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        device.licence === 'Licensed' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {device.licence}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.deviceName}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        device.statusString === 'Online' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {device.statusString}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.timezone}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.mac}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.ipAddress}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.platform}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.fwVersion}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                      {device.pushVersion}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAdd}>Add Device</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Device Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Device</DialogTitle>
+          </DialogHeader>
+          {selectedDevice && (
+            <div className="space-y-4">
+              <div>
+                <Label>Serial Number</Label>
+                <Input
+                  value={selectedDevice.serial_number}
+                  onChange={(e) =>
+                    setSelectedDevice({
+                      ...selectedDevice,
+                      serial_number: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Device Alias</Label>
+                <Input
+                  value={selectedDevice.device_alias}
+                  onChange={(e) =>
+                    setSelectedDevice({
+                      ...selectedDevice,
+                      device_alias: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label>IP Address</Label>
+                <Input
+                  value={selectedDevice.ip_address}
+                  onChange={(e) =>
+                    setSelectedDevice({
+                      ...selectedDevice,
+                      ip_address: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label>Device Type</Label>
+                <Select
+                  value={selectedDevice.is_biometric ? 'biometric' : 'standard'}
+                  onValueChange={(value) =>
+                    setSelectedDevice({
+                      ...selectedDevice,
+                      is_biometric: value === 'biometric',
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="biometric">Biometric</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEdit}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Device Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Device</DialogTitle>
+          </DialogHeader>
+          <p>
+            Are you sure you want to delete this device? This action cannot be
+            undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
