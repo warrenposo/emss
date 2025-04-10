@@ -17,12 +17,14 @@ type BiometricSyncProps = {
 const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSuccess }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string>('');
 
   const syncMutation = useMutation({
     mutationFn: async () => {
       setIsSyncing(true);
+      setSyncProgress('Connecting to device...');
+      
       try {
-        // Call the API endpoint to sync with the biometric device
         const response = await fetch('/api/devices/sync', {
           method: 'POST',
           headers: {
@@ -31,17 +33,18 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
           body: JSON.stringify({
             device_id: deviceId,
             ip_address: ipAddress,
-            port: 4370, // Default ZKTeco port
-            timeout: 5000 // 5 seconds timeout
+            port: 4370,
+            timeout: 5000
           }),
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to sync with biometric device');
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || 'Failed to sync with biometric device');
         }
 
-        const data = await response.json();
+        setSyncProgress(`Processing ${data.records} records...`);
 
         // Update the last sync timestamp in the devices table
         const { error: updateError } = await supabase
@@ -59,10 +62,11 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
         return data;
       } finally {
         setIsSyncing(false);
+        setSyncProgress('');
       }
     },
     onSuccess: (data) => {
-      toast.success(`Biometric data synced successfully. ${data.records || 0} records processed.`);
+      toast.success(`Successfully synced ${data.records} attendance records`);
       setIsDialogOpen(false);
       onSuccess?.();
     },
@@ -83,7 +87,7 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
     },
   });
 
-  const handleSync = async () => {
+  const handleSync = () => {
     setIsDialogOpen(true);
   };
 
@@ -110,10 +114,17 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
               <Label>Device IP</Label>
               <Input value={ipAddress} disabled />
             </div>
-            <p className="text-sm text-gray-500">
-              This will sync attendance records from the biometric device. 
-              Make sure the device is powered on and connected to the network.
-            </p>
+            {syncProgress && (
+              <div className="text-sm text-gray-500">
+                {syncProgress}
+              </div>
+            )}
+            {!isSyncing && (
+              <p className="text-sm text-gray-500">
+                This will sync attendance records from the biometric device. 
+                Make sure the device is powered on and connected to the network.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSyncing}>

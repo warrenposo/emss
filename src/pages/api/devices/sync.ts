@@ -1,4 +1,4 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { ZKLib } from '@/lib/zklib';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -12,18 +12,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
+  let zk: ZKLib | null = null;
+
   try {
     // Initialize ZK device
-    const zk = new ZKLib(ip_address, port, timeout);
+    zk = new ZKLib(ip_address, port, timeout);
     
     // Connect to device
     console.log('Connecting to device...', ip_address, port);
-    const connected = await zk.connect();
-    
-    if (!connected) {
-      throw new Error('Failed to connect to device');
-    }
-
+    await zk.connect();
     console.log('Connected to device');
 
     // Get device information
@@ -35,22 +32,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const attendanceLogs = await zk.getAttendance();
     console.log(`Found ${attendanceLogs.length} attendance records`);
 
-    // Process attendance logs
-    // TODO: Save attendance logs to database
-
-    // Disconnect from device
-    await zk.disconnect();
-
+    // Return success response
     return res.status(200).json({ 
+      success: true,
       message: 'Sync completed successfully',
       records: attendanceLogs.length,
-      deviceInfo
+      deviceInfo,
+      logs: attendanceLogs
     });
 
   } catch (error) {
     console.error('Error syncing device:', error);
     return res.status(500).json({ 
+      success: false,
       message: error instanceof Error ? error.message : 'Failed to sync with biometric device'
     });
+  } finally {
+    // Always try to disconnect
+    if (zk) {
+      try {
+        await zk.disconnect();
+        console.log('Disconnected from device');
+      } catch (error) {
+        console.error('Error disconnecting:', error);
+      }
+    }
   }
 } 
