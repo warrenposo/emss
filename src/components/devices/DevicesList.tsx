@@ -43,7 +43,7 @@ const DevicesList: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [newDevice, setNewDevice] = useState<Partial<Device>>({
     serial_number: '',
-    device_name: '',
+    device_alias: '',
     ip_address: '',
     is_biometric: false,
   });
@@ -69,7 +69,7 @@ const DevicesList: React.FC = () => {
         .from('devices')
         .insert([{
           serial_number: device.serial_number,
-          device_name: device.device_name,
+          device_alias: device.device_alias,
           ip_address: device.ip_address,
           is_biometric: device.is_biometric,
           last_update: new Date().toISOString(),
@@ -92,7 +92,7 @@ const DevicesList: React.FC = () => {
       setIsAddDialogOpen(false);
       setNewDevice({
         serial_number: '',
-        device_name: '',
+        device_alias: '',
         ip_address: '',
         is_biometric: false,
       });
@@ -159,7 +159,7 @@ const DevicesList: React.FC = () => {
   );
 
   const handleAdd = () => {
-    if (!newDevice.serial_number || !newDevice.device_name || !newDevice.ip_address) {
+    if (!newDevice.serial_number || !newDevice.device_alias || !newDevice.ip_address) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -288,9 +288,9 @@ const DevicesList: React.FC = () => {
             <div>
               <Label>Device Name</Label>
               <Input
-                value={newDevice.device_name}
+                value={newDevice.device_alias}
                 onChange={(e) =>
-                  setNewDevice({ ...newDevice, device_name: e.target.value })
+                  setNewDevice({ ...newDevice, device_alias: e.target.value })
                 }
                 placeholder="Enter device name"
               />
