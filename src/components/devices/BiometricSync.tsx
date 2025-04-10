@@ -25,6 +25,7 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
       setSyncProgress('Connecting to device...');
       
       try {
+        console.log('Attempting to connect to:', ipAddress);
         const response = await fetch('http://localhost:8081/api/devices/sync', {
           method: 'POST',
           headers: {
@@ -33,15 +34,19 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
           body: JSON.stringify({
             device_id: deviceId,
             ip_address: ipAddress,
-            port: 4370,
-            timeout: 5000
+            port: 4370, // ZKTeco default port
+            timeout: 10000 // Increased timeout to 10 seconds
           }),
         });
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('API Error Response:', errorText);
-          throw new Error(errorText || 'Failed to sync with biometric device');
+          console.error('API Error Response:', {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorText
+          });
+          throw new Error(`API Error: ${response.status} - ${errorText || response.statusText}`);
         }
 
         const data = await response.json();
@@ -63,10 +68,14 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
           .eq('id', deviceId);
 
         if (updateError) {
+          console.error('Supabase Update Error:', updateError);
           throw updateError;
         }
 
         return data;
+      } catch (error) {
+        console.error('Sync Error:', error);
+        throw error;
       } finally {
         setIsSyncing(false);
         setSyncProgress('');
@@ -78,6 +87,7 @@ const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSu
       onSuccess?.();
     },
     onError: (error: Error) => {
+      console.error('Mutation Error:', error);
       toast.error(`Failed to sync biometric data: ${error.message}`);
       // Update device status to offline if connection failed
       supabase
