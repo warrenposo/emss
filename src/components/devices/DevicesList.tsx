@@ -68,12 +68,28 @@ const DevicesList: React.FC = () => {
     mutationFn: async (device: Partial<Device>) => {
       const { data, error } = await supabase
         .from('devices')
-        .insert([device])
+        .insert([{
+          serial_number: device.serial_number,
+          device_name: device.device_alias,
+          ip_address: device.ip_address,
+          is_biometric: device.is_biometric,
+          last_update: new Date().toISOString(),
+          status_string: 'Online',
+          area_name: 'Default Area',
+          update_status: 'Active',
+          platform: 'Windows',
+          fw_version: '1.0.0',
+          push_version: '1.0.0',
+          device_type: device.is_biometric ? 'Biometric' : 'Standard',
+          timezone: 'UTC',
+          mac: '00:00:00:00:00:00',
+          license: 'Standard'
+        }])
         .select()
         .single();
       
       if (error) throw error;
-      return data as Device;
+      return data as unknown as Device;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] });
@@ -84,6 +100,10 @@ const DevicesList: React.FC = () => {
         ip_address: '',
         is_biometric: false,
       });
+      toast.success('Device added successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to add device: ${error.message}`);
     },
   });
 
@@ -91,7 +111,13 @@ const DevicesList: React.FC = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Device> }) => {
       const { data, error } = await supabase
         .from('devices')
-        .update(updates)
+        .update({
+          serial_number: updates.serial_number,
+          device_alias: updates.device_alias,
+          ip_address: updates.ip_address,
+          is_biometric: updates.is_biometric,
+          last_update: new Date().toISOString(),
+        })
         .eq('id', id)
         .select()
         .single();
@@ -103,6 +129,10 @@ const DevicesList: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] });
       setIsEditDialogOpen(false);
       setSelectedDevice(null);
+      toast.success('Device updated successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update device: ${error.message}`);
     },
   });
 
@@ -119,6 +149,10 @@ const DevicesList: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] });
       setIsDeleteDialogOpen(false);
       setSelectedDevice(null);
+      toast.success('Device deleted successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to delete device: ${error.message}`);
     },
   });
 
@@ -129,6 +163,18 @@ const DevicesList: React.FC = () => {
   );
 
   const handleAdd = () => {
+    if (!newDevice.serial_number || !newDevice.device_alias || !newDevice.ip_address) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    // Validate IP address format
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (!ipRegex.test(newDevice.ip_address)) {
+      toast.error('Please enter a valid IP address');
+      return;
+    }
+
     addDeviceMutation.mutate(newDevice);
   };
 
@@ -240,15 +286,17 @@ const DevicesList: React.FC = () => {
                 onChange={(e) =>
                   setNewDevice({ ...newDevice, serial_number: e.target.value })
                 }
+                placeholder="Enter device serial number"
               />
             </div>
             <div>
-              <Label>Device Alias</Label>
+              <Label>Device Name</Label>
               <Input
                 value={newDevice.device_alias}
                 onChange={(e) =>
                   setNewDevice({ ...newDevice, device_alias: e.target.value })
                 }
+                placeholder="Enter device name"
               />
             </div>
             <div>
@@ -258,6 +306,7 @@ const DevicesList: React.FC = () => {
                 onChange={(e) =>
                   setNewDevice({ ...newDevice, ip_address: e.target.value })
                 }
+                placeholder="Enter device IP address (e.g., 192.168.100.51)"
               />
             </div>
             <div>
