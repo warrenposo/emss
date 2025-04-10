@@ -1,10 +1,27 @@
-import net from 'net';
+import dgram from 'dgram';
+
+// Command codes for F18
+const CMD = {
+  CONNECT: 1000,
+  EXIT: 1001,
+  ENABLEDEVICE: 1002,
+  DISABLEDEVICE: 1003,
+  RESTART: 1004,
+  POWEROFF: 1005,
+  GET_ATTENDANCE: 13,
+  GET_DEVICE_INFO: 11,
+  ACK_OK: 2000,
+  ACK_ERROR: 2001,
+  ACK_DATA: 2002,
+};
 
 export class ZKLib {
   private ip: string;
   private port: number;
   private timeout: number;
-  private socket: net.Socket | null = null;
+  private socket: dgram.Socket | null = null;
+  private sessionId: number = 0;
+  private replyId: number = 0;
 
   constructor(ip: string, port: number = 4370, timeout: number = 5000) {
     this.ip = ip;
@@ -14,33 +31,46 @@ export class ZKLib {
 
   public async connect(): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      this.socket = new net.Socket();
+      try {
+        this.socket = dgram.createSocket('udp4');
 
-      this.socket.on('error', (error) => {
-        console.error('Socket error:', error);
+        this.socket.on('error', (error) => {
+          console.error('Socket error:', error);
+          reject(error);
+        });
+
+        this.socket.on('message', (msg, rinfo) => {
+          if (this.parseResponse(msg)) {
+            resolve(true);
+          }
+        });
+
+        // Send connection command
+        const command = this.createCommand(CMD.CONNECT);
+        this.socket.send(command, 0, command.length, this.port, this.ip);
+
+        // Set connection timeout
+        setTimeout(() => {
+          if (this.socket) {
+            this.socket.close();
+            reject(new Error('Connection timeout'));
+          }
+        }, this.timeout);
+      } catch (error) {
         reject(error);
-      });
-
-      this.socket.connect(this.port, this.ip, () => {
-        console.log('Connected to device');
-        resolve(true);
-      });
-
-      // Set connection timeout
-      setTimeout(() => {
-        if (this.socket) {
-          this.socket.destroy();
-          reject(new Error('Connection timeout'));
-        }
-      }, this.timeout);
+      }
     });
   }
 
   public async disconnect(): Promise<void> {
     return new Promise((resolve) => {
       if (this.socket) {
-        this.socket.end(() => {
-          this.socket = null;
+        const command = this.createCommand(CMD.EXIT);
+        this.socket.send(command, 0, command.length, this.port, this.ip, () => {
+          if (this.socket) {
+            this.socket.close();
+            this.socket = null;
+          }
           resolve();
         });
       } else {
@@ -50,40 +80,87 @@ export class ZKLib {
   }
 
   public async getInfo(): Promise<any> {
-    // TODO: Implement actual device info retrieval
-    return {
-      deviceName: 'ZKTeco Device',
-      serialNumber: 'Unknown',
-      platform: 'ZKTeco',
-      firmware: '1.0.0',
-      deviceTime: new Date().toISOString()
-    };
+    if (!this.socket) throw new Error('Not connected to device');
+
+    return new Promise((resolve, reject) => {
+      const command = this.createCommand(CMD.GET_DEVICE_INFO);
+      
+      this.socket!.once('message', (msg) => {
+        const response = this.parseResponse(msg);
+        if (response) {
+          resolve({
+            deviceName: 'F18',
+            serialNumber: response.toString('ascii', 8, 16),
+            platform: 'ZKTeco',
+            firmware: response.toString('ascii', 16, 24),
+            deviceTime: new Date().toISOString()
+          });
+        } else {
+          reject(new Error('Invalid response from device'));
+        }
+      });
+
+      this.socket.send(command, 0, command.length, this.port, this.ip);
+    });
   }
 
   public async getAttendance(): Promise<any[]> {
-    // TODO: Implement actual attendance log retrieval
-    return [];
+    if (!this.socket) throw new Error('Not connected to device');
+
+    return new Promise((resolve, reject) => {
+      const command = this.createCommand(CMD.GET_ATTENDANCE);
+      
+      const records: any[] = [];
+      
+      this.socket!.on('message', (msg) => {
+        const response = this.parseResponse(msg);
+        if (response) {
+          // Parse attendance records from response
+          // Each record is 40 bytes
+          for (let i = 0; i < response.length; i += 40) {
+            const record = {
+              userId: response.readUInt32LE(i + 0),
+              timestamp: new Date(
+                response.readUInt32LE(i + 4) * 1000
+              ).toISOString(),
+              verifyType: response.readUInt8(i + 28),
+              status: response.readUInt8(i + 29)
+            };
+            records.push(record);
+          }
+          resolve(records);
+        } else {
+          reject(new Error('Invalid response from device'));
+        }
+      });
+
+      this.socket.send(command, 0, command.length, this.port, this.ip);
+    });
   }
 
-  // Helper method to send commands to the device
-  private async sendCommand(command: Buffer): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      if (!this.socket) {
-        reject(new Error('Not connected to device'));
-        return;
-      }
+  private createCommand(command: number): Buffer {
+    const buf = Buffer.alloc(8);
+    buf.writeUInt16LE(command, 0);
+    buf.writeUInt16LE(0, 2);  // checksum
+    buf.writeUInt16LE(this.sessionId, 4);
+    buf.writeUInt16LE(this.replyId, 6);
+    return buf;
+  }
 
-      const responseData: Buffer[] = [];
+  private parseResponse(response: Buffer): Buffer | null {
+    if (response.length < 8) return null;
 
-      this.socket.on('data', (data) => {
-        responseData.push(data);
-      });
+    const command = response.readUInt16LE(0);
+    const checksum = response.readUInt16LE(2);
+    const sessionId = response.readUInt16LE(4);
+    const replyId = response.readUInt16LE(6);
 
-      this.socket.on('end', () => {
-        resolve(Buffer.concat(responseData));
-      });
+    if (command === CMD.ACK_OK) {
+      this.sessionId = sessionId;
+      this.replyId = replyId;
+      return response.slice(8);
+    }
 
-      this.socket.write(command);
-    });
+    return null;
   }
 } 
