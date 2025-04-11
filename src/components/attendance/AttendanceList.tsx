@@ -60,6 +60,15 @@ const AttendanceList = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Add debug logging for Supabase configuration
+  useEffect(() => {
+    console.log('Supabase Configuration:', {
+      isConfigured: isSupabaseConfigured(),
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Not Set',
+      anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Not Set'
+    });
+  }, []);
+
   // Show notification if Supabase is not configured (demo mode)
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -68,26 +77,111 @@ const AttendanceList = () => {
   }, []);
 
   /**
-   * Fetch devices data
+   * Fetch devices data with error handling
    */
-  const { data: devices = [] } = useQuery({
+  const { 
+    data: devices = [], 
+    isLoading: isLoadingDevices,
+    error: devicesError 
+  } = useQuery({
     queryKey: ['devices'],
     queryFn: async () => {
       try {
+        console.log('Fetching devices...');
+        
+        if (!isSupabaseConfigured()) {
+          console.error('Supabase is not configured');
+          throw new Error('Supabase is not configured');
+        }
+
         const { data, error } = await supabase
           .from('devices')
           .select('*')
           .order('alias');
 
-        if (error) throw error;
+        console.log('Devices response:', { data, error });
+
+        if (error) {
+          console.error('Supabase error:', error);
+          throw error;
+        }
+        
         return data as Device[];
       } catch (error) {
         console.error('Error fetching devices:', error);
-        toast.error('Failed to load devices');
-        return [];
+        throw error;
       }
-    }
+    },
+    retry: 3,
+    retryDelay: 1000,
+    // Add these options to help with debugging
+    refetchOnWindowFocus: false,
+    refetchOnMount: true
   });
+
+  // Show error toast if devices fetch fails
+  useEffect(() => {
+    if (devicesError) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load devices. Please check your connection.',
+        variant: 'destructive',
+      });
+    }
+  }, [devicesError, toast]);
+
+  // Show loading state
+  if (isLoadingDevices) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (devicesError) {
+    return (
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Error Loading Devices</CardTitle>
+            <CardDescription>
+              There was an error loading the devices. Please try again later.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show empty state
+  if (devices.length === 0) {
+    return (
+      <div className="container mx-auto py-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>No Devices Found</CardTitle>
+            <CardDescription>
+              No biometric devices are configured. Please add a device to get started.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.reload()}>
+              Refresh
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   /**
    * Fetch attendance records with filters
