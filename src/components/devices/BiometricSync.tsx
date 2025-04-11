@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -18,21 +18,28 @@ export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncP
   const handleSync = async () => {
     try {
       setIsSyncing(true);
+      console.log('Starting sync with device:', { deviceId, ipAddress });
       
-      // Call Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke('device-sync', {
-        body: { 
+      // Call the local server endpoint
+      const response = await fetch('http://localhost:3005/api/device/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           ipAddress,
           deviceId,
           port: 4370 // Default ZKTeco port
-        }
+        })
       });
 
-      if (error) throw error;
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to sync device');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to sync device');
       }
+
+      const data = await response.json();
+      console.log('Sync response:', data);
 
       toast({
         title: 'Success',
@@ -48,7 +55,7 @@ export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncP
       console.error('Sync error:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to sync device',
+        description: error instanceof Error ? error.message : 'Failed to sync device',
         variant: 'destructive',
       });
     } finally {
