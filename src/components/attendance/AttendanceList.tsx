@@ -28,6 +28,18 @@ interface AttendanceRecord {
   created_at: string;
 }
 
+interface Device {
+  id: string;
+  serial_number: string;
+  device_type: string;
+  alias: string;
+  status: string;
+  ip_address: string;
+  platform: string;
+  firmware_version: string;
+  last_update: string;
+}
+
 /**
  * AttendanceList Component
  * 
@@ -57,13 +69,18 @@ const AttendanceList = () => {
 
   /**
    * Fetch devices data
-   * Uses mock data if Supabase is not configured
    */
   const { data: devices = [] } = useQuery({
     queryKey: ['devices'],
     queryFn: async () => {
       try {
-        return await getDevices();
+        const { data, error } = await supabase
+          .from('devices')
+          .select('*')
+          .order('alias');
+
+        if (error) throw error;
+        return data as Device[];
       } catch (error) {
         console.error('Error fetching devices:', error);
         toast.error('Failed to load devices');
@@ -157,15 +174,17 @@ const AttendanceList = () => {
     try {
       setIsLoading(true);
       
+      if (deviceFilter === 'all_devices') {
+        throw new Error('Please select a specific device to sync');
+      }
+
       const response = await fetch('http://localhost:3005/api/device/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ipAddress: '192.168.100.51',
-          port: 4370,
-          deviceId: deviceFilter !== 'all_devices' ? deviceFilter : undefined
+          deviceId: deviceFilter
         })
       });
 
@@ -178,7 +197,7 @@ const AttendanceList = () => {
       
       toast({
         title: 'Success',
-        description: `Successfully synced ${data.records || 0} attendance records`,
+        description: `Successfully synced ${data.records || 0} attendance records from ${data.deviceInfo.alias}`,
       });
 
       refetch();
@@ -226,7 +245,7 @@ const AttendanceList = () => {
                 <SelectItem value="all_devices">All Devices</SelectItem>
                 {devices.map((device) => (
                   <SelectItem key={device.id} value={device.id}>
-                    {device.name}
+                    {device.alias} ({device.status})
                   </SelectItem>
                 ))}
               </SelectContent>
