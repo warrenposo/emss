@@ -1,7 +1,13 @@
-import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
+import { createClient } from '@supabase/supabase-js';
 
-// Export the client from the official integration
-export { supabase, isSupabaseConfigured };
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+export const isSupabaseConfigured = () => {
+  return !!supabaseUrl && !!supabaseAnonKey;
+};
 
 /**
  * BIOMETRIC INTEGRATION POINT
@@ -16,14 +22,32 @@ export { supabase, isSupabaseConfigured };
  * }
  */
 export const connectBiometricDevice = async (deviceId: string, config = {}) => {
-  console.log('INTEGRATION POINT: Connect to biometric device', deviceId, config);
-  // Implement your biometric device connection logic here
-  return { success: true, message: 'This is a placeholder. Implement your biometric connection here.' };
+  try {
+    const { data, error } = await supabase.functions.invoke('sync-device', {
+      body: {
+        deviceId,
+        ...config
+      }
+    });
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Error connecting to biometric device:', error);
+    throw error;
+  }
 };
 
 export const receiveBiometricData = async (data: any) => {
-  console.log('INTEGRATION POINT: Process biometric data', data);
-  // Implement your biometric data processing logic here
-  // When implemented, this should store attendance records in the database
-  return { success: true, message: 'This is a placeholder. Implement your biometric data handling here.' };
+  try {
+    const { error } = await supabase
+      .from('attendance_records')
+      .upsert(data);
+
+    if (error) throw error;
+    return { success: true, message: 'Attendance data stored successfully' };
+  } catch (error) {
+    console.error('Error storing biometric data:', error);
+    throw error;
+  }
 };
