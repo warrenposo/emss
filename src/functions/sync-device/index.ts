@@ -9,6 +9,9 @@ const corsHeaders = {
 
 interface DeviceSyncRequest {
   deviceId: string; // This is a UUID string
+  ip_address: string;
+  port: number;
+  timeout: number;
 }
 
 interface Device {
@@ -50,7 +53,7 @@ serve(async (req: Request) => {
       }
     )
 
-    const { deviceId } = await req.json() as DeviceSyncRequest
+    const { deviceId, ip_address, port, timeout } = await req.json() as DeviceSyncRequest
 
     if (!deviceId || !isValidUUID(deviceId)) {
       return new Response(

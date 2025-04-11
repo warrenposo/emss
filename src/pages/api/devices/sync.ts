@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { ZKLib } from '@/lib/zklib';
+import ZKLib from '../../../lib/zklib';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -9,7 +9,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { device_id, ip_address, port = 4370, timeout = 5000 } = req.body;
 
   if (!device_id || !ip_address) {
-    return res.status(400).json({ message: 'Missing required fields' });
+    return res.status(400).json({ 
+      success: false,
+      message: 'Missing required fields: device_id and ip_address are required' 
+    });
   }
 
   let zk: ZKLib | null = null;
@@ -19,9 +22,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     zk = new ZKLib(ip_address, port, timeout);
     
     // Connect to device
-    console.log('Connecting to device...', ip_address, port);
-    await zk.connect();
-    console.log('Connected to device');
+    console.log('Connecting to device...', { ip_address, port, timeout });
+    const connected = await zk.connect();
+    
+    if (!connected) {
+      throw new Error('Failed to establish connection with device');
+    }
+    
+    console.log('Connected to device successfully');
+
+    // Disable device before operations
+    await zk.disableDevice();
+    console.log('Device disabled for operations');
 
     // Get device information
     const deviceInfo = await zk.getInfo();
@@ -31,6 +43,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Getting attendance logs...');
     const attendanceLogs = await zk.getAttendance();
     console.log(`Found ${attendanceLogs.length} attendance records`);
+
+    // Re-enable device after operations
+    await zk.enableDevice();
+    console.log('Device re-enabled');
 
     // Return success response
     return res.status(200).json({ 
