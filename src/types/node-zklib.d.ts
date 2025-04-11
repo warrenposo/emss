@@ -1,8 +1,8 @@
 declare module 'node-zklib' {
   interface ZKOptions {
     ip: string;
-    port: number;
-    inport: number;
+    port?: number;
+    inPort?: number;
     timeout?: number;
   }
 
@@ -12,6 +12,13 @@ declare module 'node-zklib' {
     name: string;
     cardno: string;
     role: number;
+  }
+
+  interface ZKAttendance {
+    id: string;
+    timestamp: Date;
+    uid: number;
+    type: number;
   }
 
   interface ZKResponse {
@@ -28,9 +35,13 @@ declare module 'node-zklib' {
     constructor(options: ZKOptions);
     createSocket(): Promise<void>;
     disconnect(): Promise<void>;
-    getUsers(): Promise<ZKResponse>;
-    getInfo(): Promise<DeviceInfo>;
-    getAttendance(): Promise<any[]>;
+    getUsers(): Promise<{ data: ZKUser[] }>;
+    getAttendance(): Promise<ZKAttendance[]>;
+    getInfo(): Promise<{
+      serialNumber: string;
+      model: string;
+      version: string;
+    }>;
     connect(): Promise<void>;
   }
 

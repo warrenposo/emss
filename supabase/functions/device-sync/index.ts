@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { ZKLib } from '../lib/zklib.ts'
+import ZKLib from '@zkteco/zklib'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +25,7 @@ serve(async (req) => {
     const zkInstance = new ZKLib({
       ip: ipAddress,
       port: port || 4370,
+      inPort: 0,
       timeout: 5000
     })
 
@@ -32,13 +33,13 @@ serve(async (req) => {
     await zkInstance.connect()
 
     // Get users from device
-    const users = await zkInstance.getUsers()
+    const response = await zkInstance.getUsers()
 
     // Store users in Supabase
     const { error } = await supabaseClient
       .from('biometric_data')
       .upsert(
-        users.map(user => ({
+        response.data.map(user => ({
           device_id: deviceId,
           user_id: user.id,
           fingerprint_data: user.fingerprint_data
@@ -56,6 +57,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
+    console.error('Function error:', error);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
       { 

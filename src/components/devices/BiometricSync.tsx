@@ -20,21 +20,17 @@ export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncP
       setIsSyncing(true);
       
       // Call Supabase Edge Function
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/device-sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('device-sync', {
+        body: { 
           ipAddress,
-          deviceId
-        })
+          deviceId,
+          port: 4370 // Default ZKTeco port
+        }
       });
 
-      const data = await response.json();
+      if (error) throw error;
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error(data.error || 'Failed to sync device');
       }
 
@@ -49,9 +45,10 @@ export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncP
       
       onSuccess?.();
     } catch (error) {
+      console.error('Sync error:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to sync device',
         variant: 'destructive',
       });
     } finally {

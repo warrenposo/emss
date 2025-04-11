@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
-import ZKLib from '@zkteco/zklib';
+import ZKLib from 'node-zklib';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -12,10 +12,10 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize Supabase client with environment variables
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.VITE_SUPABASE_ANON_KEY!
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://lizkalsahbpmznkajjyr.supabase.co';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpemthbHNhaGJwbXpua2FqanlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI1NDA5NTcsImV4cCI6MjA1ODExNjk1N30.iv9rCs5qcaufM6hEP';
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Enable detailed error logging
 app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -27,6 +27,7 @@ interface DeviceConnectionRequest {
   ipAddress: string;
   port?: number;
   timeout?: number;
+  deviceId?: string;
 }
 
 interface BiometricUser {
@@ -34,13 +35,6 @@ interface BiometricUser {
   name: string;
   cardno: string;
   role: number;
-  fingerprint_data: any;
-}
-
-interface DeviceInfo {
-  serialNumber: string;
-  model: string;
-  version: string;
 }
 
 // Error handling middleware
@@ -60,11 +54,11 @@ async function initializeDevice(ipAddress: string, port: number = 4370, timeout:
     });
 
     // Connect to device
-    await zkInstance.connect();
+    await zkInstance.createSocket();
     console.log('[DEBUG] Successfully connected to device');
 
     // Get device info
-    const deviceInfo = await zkInstance.getDeviceInfo();
+    const deviceInfo = await zkInstance.getInfo();
     console.log('[DEBUG] Device info:', deviceInfo);
 
     return zkInstance;
@@ -77,13 +71,13 @@ async function initializeDevice(ipAddress: string, port: number = 4370, timeout:
 // Connect to device endpoint
 app.post('/api/device/connect', async (req, res) => {
   try {
-    const { ipAddress, port, timeout } = req.body as DeviceConnectionRequest;
-    console.log('[DEBUG] Connection request received:', { ipAddress, port, timeout });
+    const { ipAddress, port, timeout, deviceId } = req.body as DeviceConnectionRequest;
+    console.log('[DEBUG] Connection request received:', { ipAddress, port, timeout, deviceId });
 
     const zkInstance = await initializeDevice(ipAddress, port, timeout);
     
     // Get users from device
-    const users = await zkInstance.getUsers();
+    const { data: users } = await zkInstance.getUsers();
     console.log('[DEBUG] Retrieved users:', users.length);
 
     // Store users in Supabase
@@ -91,9 +85,11 @@ app.post('/api/device/connect', async (req, res) => {
       .from('biometric_data')
       .upsert(
         users.map(user => ({
-          device_id: req.body.deviceId,
+          device_id: deviceId,
           user_id: user.id,
-          fingerprint_data: user.fingerprint_data
+          name: user.name,
+          card_number: user.cardno,
+          role: user.role
         }))
       );
 
@@ -125,7 +121,13 @@ app.post('/api/device/sync', async (req, res) => {
     // Store attendance in Supabase
     const { error } = await supabase
       .from('attendance_records')
-      .upsert(attendance);
+      .upsert(
+        attendance.map(record => ({
+          user_id: record.uid.toString(),
+          timestamp: record.timestamp,
+          type: record.type
+        }))
+      );
 
     if (error) throw error;
 

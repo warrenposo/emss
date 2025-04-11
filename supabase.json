@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "device-sync": {
+      "verify_jwt": false
+    }
+  }
+} 

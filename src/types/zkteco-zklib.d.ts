@@ -2,16 +2,17 @@ declare module '@zkteco/zklib' {
   interface ZKOptions {
     ip: string;
     port: number;
-    inPort: number;
+    inPort?: number;
     timeout?: number;
   }
 
   interface ZKUser {
-    uid: number;
+    uid: string;
     id: string;
     name: string;
     cardno: string;
     role: number;
+    fingerprint_data: any;
   }
 
   interface ZKResponse {
@@ -24,14 +25,12 @@ declare module '@zkteco/zklib' {
     version: string;
   }
 
-  class ZKLib {
+  export default class ZKLib {
     constructor(options: ZKOptions);
-    createSocket(): Promise<void>;
+    connect(): Promise<void>;
     disconnect(): Promise<void>;
     getUsers(): Promise<ZKResponse>;
-    getInfo(): Promise<DeviceInfo>;
+    getDeviceInfo(): Promise<DeviceInfo>;
     getAttendance(): Promise<any[]>;
   }
-
-  export default ZKLib;
 } 
