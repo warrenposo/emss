@@ -15,6 +15,9 @@ import { toast } from "sonner";
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
+import { DeviceList } from '@/components/DeviceList';
 
 interface AttendanceRecord {
   id: string;
@@ -314,7 +317,7 @@ const AttendanceList = () => {
         throw new Error('Please select a specific device to sync');
       }
 
-      const response = await fetch('http://localhost:3005/api/device/sync', {
+      const response = await fetch('http://localhost:3006/api/device/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

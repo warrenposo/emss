@@ -10,18 +10,31 @@ import { supabase, isSupabaseConfigured } from './supabase';
 
 // Types
 export interface AttendanceRecord {
-  id?: string;
-  employee_id: string;
-  employee_name: string;
-  department: string;
-  device_name: string;
-  punch_date: string;
-  punch_time: string;
-  status: 'Present' | 'Absent' | 'Late';
-  verify_type: string;
-  device_serial: string;
-  remark?: string;
-  created_at?: string;
+  id: string;
+  user_id: string;
+  device_id: string;
+  timestamp: string;
+  temperature: number | null;
+  verify_type: string | null;
+  status: string | null;
+  remark: string | null;
+  created_at: string;
+  devices?: {
+    alias: string;
+    serial_number: string;
+  };
+}
+
+export interface Device {
+  id: string;
+  serial_number: string;
+  device_type: string;
+  alias: string;
+  status: string;
+  ip_address: string;
+  platform: string;
+  firmware_version: string;
+  last_update: string;
 }
 
 /**
@@ -31,42 +44,48 @@ export interface AttendanceRecord {
 const mockAttendanceRecords: AttendanceRecord[] = [
   {
     id: '1',
-    employee_id: '1001',
-    employee_name: 'John Doe',
-    department: 'Engineering',
-    device_name: 'Main Entrance',
-    punch_date: '2023-09-01',
-    punch_time: '09:00:00',
-    status: 'Present',
+    user_id: '1001',
+    device_id: 'DEV001',
+    timestamp: '2023-09-01T09:00:00',
+    temperature: null,
     verify_type: 'Fingerprint',
-    device_serial: 'DEV001',
+    status: 'Present',
     remark: '',
+    created_at: '2023-09-01T09:00:00',
+    devices: {
+      alias: 'Main Entrance',
+      serial_number: 'DEV001',
+    },
   },
   {
     id: '2',
-    employee_id: '1002',
-    employee_name: 'Jane Smith',
-    department: 'Marketing',
-    device_name: 'Side Entrance',
-    punch_date: '2023-09-01',
-    punch_time: '09:15:00',
-    status: 'Late',
+    user_id: '1002',
+    device_id: 'DEV002',
+    timestamp: '2023-09-01T09:15:00',
+    temperature: null,
     verify_type: 'Card',
-    device_serial: 'DEV002',
+    status: 'Late',
     remark: 'Traffic delay',
+    created_at: '2023-09-01T09:15:00',
+    devices: {
+      alias: 'Side Entrance',
+      serial_number: 'DEV002',
+    },
   },
   {
     id: '3',
-    employee_id: '1003',
-    employee_name: 'Bob Johnson',
-    department: 'Finance',
-    device_name: 'Back Entrance',
-    punch_date: '2023-09-01',
-    punch_time: '08:45:00',
-    status: 'Present',
+    user_id: '1003',
+    device_id: 'DEV003',
+    timestamp: '2023-09-01T08:45:00',
+    temperature: null,
     verify_type: 'Face',
-    device_serial: 'DEV003',
+    status: 'Present',
     remark: '',
+    created_at: '2023-09-01T08:45:00',
+    devices: {
+      alias: 'Back Entrance',
+      serial_number: 'DEV003',
+    },
   },
 ];
 
@@ -120,38 +139,38 @@ export const getAttendanceRecords = async ({
       
       if (idFilter) {
         filteredData = filteredData.filter(record => 
-          record.employee_id.toLowerCase().includes(idFilter.toLowerCase()));
+          record.user_id.toLowerCase().includes(idFilter.toLowerCase()));
       }
       
       if (nameFilter) {
         filteredData = filteredData.filter(record => 
-          record.employee_name.toLowerCase().includes(nameFilter.toLowerCase()));
+          record.devices?.alias.toLowerCase().includes(nameFilter.toLowerCase()));
       }
       
       if (departmentFilter && departmentFilter !== 'all_departments') {
         filteredData = filteredData.filter(record => 
-          record.department === departmentFilter);
+          record.devices?.alias === departmentFilter);
       }
       
       if (deviceFilter && deviceFilter !== 'all_devices') {
         filteredData = filteredData.filter(record => 
-          record.device_name === deviceFilter);
+          record.device_id === deviceFilter);
       }
       
       // Date range filtering
       if (startDate) {
         filteredData = filteredData.filter(record => 
-          new Date(record.punch_date) >= startDate);
+          new Date(record.timestamp) >= startDate);
       }
       
       if (endDate) {
         filteredData = filteredData.filter(record => 
-          new Date(record.punch_date) <= endDate);
+          new Date(record.timestamp) <= endDate);
       }
       
       // Sort by date descending
       filteredData.sort((a, b) => 
-        new Date(b.punch_date).getTime() - new Date(a.punch_date).getTime());
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       
       // Apply pagination
       const start = (page - 1) * pageSize;
@@ -172,27 +191,27 @@ export const getAttendanceRecords = async ({
       .from('attendance_logs')
       .select(`
         id,
-        punch_time,
-        employee_id,
+        timestamp,
+        user_id,
         status,
         remark,
         verify_type,
         device_id,
-        employees!employees (first_name, last_name),
+        temperature,
         devices!devices (alias, serial_number)
       `, { count: 'exact' });
 
     // Apply filters
     if (idFilter) {
-      query = query.ilike('employee_id', `%${idFilter}%`);
+      query = query.ilike('user_id', `%${idFilter}%`);
     }
     
     if (nameFilter) {
-      query = query.or(`employees.first_name.ilike.%${nameFilter}%,employees.last_name.ilike.%${nameFilter}%`);
+      query = query.or(`devices.alias.ilike.%${nameFilter}%,devices.serial_number.ilike.%${nameFilter}%`);
     }
     
     if (departmentFilter && departmentFilter !== 'all_departments') {
-      query = query.eq('employees.department_id', departmentFilter);
+      query = query.eq('devices.alias', departmentFilter);
     }
     
     if (deviceFilter && deviceFilter !== 'all_devices') {
@@ -201,11 +220,11 @@ export const getAttendanceRecords = async ({
     
     // Date range filtering
     if (startDate) {
-      query = query.gte('punch_time', startDate.toISOString());
+      query = query.gte('timestamp', startDate.toISOString());
     }
     
     if (endDate) {
-      query = query.lte('punch_time', endDate.toISOString());
+      query = query.lte('timestamp', endDate.toISOString());
     }
     
     // Calculate pagination
@@ -214,7 +233,7 @@ export const getAttendanceRecords = async ({
     
     // Get paginated results
     const { data, error, count } = await query
-      .order('punch_time', { ascending: false })
+      .order('timestamp', { ascending: false })
       .range(from, to);
       
     if (error) {
@@ -224,23 +243,23 @@ export const getAttendanceRecords = async ({
     
     // Transform data to match AttendanceRecord interface
     const formattedData: AttendanceRecord[] = data.map(record => {
-      const punchDateTime = new Date(record.punch_time);
-      const employee = record.employees || {};
+      const punchDateTime = new Date(record.timestamp);
       const device = record.devices || {};
       
       return {
         id: record.id,
-        employee_id: record.employee_id || '',
-        employee_name: `${employee.first_name || ''} ${employee.last_name || ''}`.trim() || 'Unknown',
-        department: 'Department', // TODO: Add department query
-        device_name: device.alias || 'Unknown Device',
-        punch_date: punchDateTime.toISOString().split('T')[0],
-        punch_time: punchDateTime.toISOString().split('T')[1].substring(0, 8),
-        status: record.status || 'Present',
-        verify_type: record.verify_type || 'Unknown',
-        device_serial: device.serial_number || '',
-        remark: record.remark || '',
-        created_at: record.created_at
+        user_id: record.user_id || '',
+        device_id: record.device_id || '',
+        timestamp: punchDateTime.toISOString(),
+        temperature: record.temperature || null,
+        verify_type: record.verify_type || null,
+        status: record.status || null,
+        remark: record.remark || null,
+        created_at: record.created_at,
+        devices: {
+          alias: device.alias || 'Unknown Device',
+          serial_number: device.serial_number || '',
+        },
       };
     });
     
@@ -420,8 +439,8 @@ export const getAttendanceStats = async (startDate?: Date, endDate?: Date) => {
     const { data, error } = await supabase
       .from('attendance_logs')
       .select('status, count')
-      .gte('punch_time', start.toISOString())
-      .lte('punch_time', end.toISOString())
+      .gte('timestamp', start.toISOString())
+      .lte('timestamp', end.toISOString())
       .group('status');
     
     if (error) {

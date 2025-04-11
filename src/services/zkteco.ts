@@ -7,7 +7,7 @@ interface ZKTecoResponse<T = any> {
 interface AttendanceRecord {
   uid: number;
   id: string;
-  status: 'Check In' | 'Check Out';
+  status: string;
   timestamp: string;
 }
 
@@ -15,7 +15,7 @@ interface UserRecord {
   uid: number;
   id: string;
   name: string;
-  role: 'Admin' | 'User';
+  role: string;
   password: string;
 }
 
@@ -27,10 +27,22 @@ interface DeviceInfo {
 }
 
 class ZKTecoService {
-  private baseUrl: string;
+  private baseUrl = '/api/zkteco/device';
 
-  constructor() {
-    this.baseUrl = '/api/zkteco/device.php';
+  async connect(ip: string, port: number): Promise<ZKTecoResponse> {
+    return this.request('connect', ip, port);
+  }
+
+  async getAttendanceRecords(ip: string, port: number): Promise<ZKTecoResponse<AttendanceRecord[]>> {
+    return this.request<AttendanceRecord[]>('getAttendance', ip, port);
+  }
+
+  async getUserRecords(ip: string, port: number): Promise<ZKTecoResponse<UserRecord[]>> {
+    return this.request<UserRecord[]>('getUsers', ip, port);
+  }
+
+  async getDeviceInfo(ip: string, port: number): Promise<ZKTecoResponse<DeviceInfo>> {
+    return this.request<DeviceInfo>('getDeviceInfo', ip, port);
   }
 
   private async request<T>(action: string, ip: string, port: number): Promise<ZKTecoResponse<T>> {
@@ -43,6 +55,10 @@ class ZKTecoService {
         body: JSON.stringify({ action, ip, port }),
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json() as ZKTecoResponse<T>;
       return data;
     } catch (error) {
@@ -51,22 +67,6 @@ class ZKTecoService {
         message: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
-  }
-
-  async connect(ip: string, port: number): Promise<ZKTecoResponse> {
-    return this.request('connect', ip, port);
-  }
-
-  async getAttendance(ip: string, port: number): Promise<ZKTecoResponse<AttendanceRecord[]>> {
-    return this.request<AttendanceRecord[]>('getAttendance', ip, port);
-  }
-
-  async getUsers(ip: string, port: number): Promise<ZKTecoResponse<UserRecord[]>> {
-    return this.request<UserRecord[]>('getUsers', ip, port);
-  }
-
-  async getDeviceInfo(ip: string, port: number): Promise<ZKTecoResponse<DeviceInfo>> {
-    return this.request<DeviceInfo>('getDeviceInfo', ip, port);
   }
 }
 
