@@ -1,28 +1,40 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
-import ZKLib from './lib/zklib';
+import { createClient } from '@supabase/supabase-js';
+import ZKLib from '@zkteco/zklib';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Initialize Supabase client with environment variables
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.VITE_SUPABASE_ANON_KEY!
+);
+
 // Enable detailed error logging
-app.use((req: Request, _res: Response, next: NextFunction) => {
+app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
 interface DeviceConnectionRequest {
   ipAddress: string;
-  port: number;
+  port?: number;
   timeout?: number;
 }
 
 interface BiometricUser {
   id: string;
   name: string;
-  cardNumber: string;
+  cardno: string;
   role: number;
+  fingerprint_data: any;
 }
 
 interface DeviceInfo {
@@ -32,134 +44,108 @@ interface DeviceInfo {
 }
 
 // Error handling middleware
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({
-    success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
+  res.status(500).json({ error: 'Internal server error' });
 });
 
-async function initializeDevice(ipAddress: string, port: number, timeout: number = 5000): Promise<any> {
+async function initializeDevice(ipAddress: string, port: number = 4370, timeout: number = 5000) {
   try {
     console.log(`[DEBUG] Attempting to connect to device at ${ipAddress}:${port} with timeout ${timeout}ms`);
-    const zk = new ZKLib(ipAddress, port);
     
-    // Try to connect using the socket
-    await zk.connect();
-    console.log('[DEBUG] Socket created successfully');
-    
-    // Disable device first (as in the PHP example)
-    await zk.disableDevice();
-    console.log('[DEBUG] Device disabled successfully');
-    
-    // Enable device (as in the PHP example)
-    await zk.enableDevice();
-    console.log('[DEBUG] Device enabled successfully');
-    
+    const zkInstance = new ZKLib({
+      ip: ipAddress,
+      port: port,
+      timeout: timeout
+    });
+
+    // Connect to device
+    await zkInstance.connect();
     console.log('[DEBUG] Successfully connected to device');
-    return zk;
+
+    // Get device info
+    const deviceInfo = await zkInstance.getDeviceInfo();
+    console.log('[DEBUG] Device info:', deviceInfo);
+
+    return zkInstance;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('[ERROR] Device connection error:', errorMessage);
-    throw new Error(`Failed to connect to device at ${ipAddress}:${port}. ${errorMessage}`);
+    console.error('[ERROR] Device connection error:', error);
+    throw new Error(`Failed to connect to device at ${ipAddress}:${port}. ${error.message}`);
   }
 }
 
-app.post('/api/device/connect', async (req: Request<{}, {}, DeviceConnectionRequest>, res: Response): Promise<Response | void> => {
-  const { ipAddress, port, timeout } = req.body;
-  console.log('[DEBUG] Connection request received:', { ipAddress, port, timeout });
-
-  if (!ipAddress || !port) {
-    console.error('[ERROR] Missing required fields:', { ipAddress, port });
-    return res.status(400).json({
-      success: false,
-      message: 'Missing required fields: ipAddress and port are required'
-    });
-  }
-
+// Connect to device endpoint
+app.post('/api/device/connect', async (req, res) => {
   try {
+    const { ipAddress, port, timeout } = req.body as DeviceConnectionRequest;
+    console.log('[DEBUG] Connection request received:', { ipAddress, port, timeout });
+
     const zkInstance = await initializeDevice(ipAddress, port, timeout);
+    
+    // Get users from device
+    const users = await zkInstance.getUsers();
+    console.log('[DEBUG] Retrieved users:', users.length);
+
+    // Store users in Supabase
+    const { error } = await supabase
+      .from('biometric_data')
+      .upsert(
+        users.map(user => ({
+          device_id: req.body.deviceId,
+          user_id: user.id,
+          fingerprint_data: user.fingerprint_data
+        }))
+      );
+
+    if (error) throw error;
+
+    // Disconnect from device
     await zkInstance.disconnect();
-    console.log('[DEBUG] Connection successful');
-    return res.json({ 
-      success: true, 
-      message: 'Successfully connected to device',
-      device: { ipAddress, port }
-    });
+    console.log('[DEBUG] Disconnected from device');
+
+    res.json({ success: true, message: 'Device connected and data synced successfully' });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('[ERROR] Connection failed:', errorMessage);
-    return res.status(500).json({ 
-      success: false, 
-      message: errorMessage 
-    });
+    console.error('[ERROR] Connection failed:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/device/sync', async (req: Request<{}, {}, DeviceConnectionRequest>, res: Response): Promise<Response | void> => {
-  const { ipAddress, port, timeout } = req.body;
-  console.log('[DEBUG] Sync request received:', { ipAddress, port, timeout });
-
-  if (!ipAddress || !port) {
-    console.error('[ERROR] Missing required fields:', { ipAddress, port });
-    return res.status(400).json({
-      success: false,
-      message: 'Missing required fields: ipAddress and port are required'
-    });
-  }
-
+// Sync device data endpoint
+app.post('/api/device/sync', async (req, res) => {
   try {
+    const { ipAddress, port, timeout } = req.body as DeviceConnectionRequest;
+    console.log('[DEBUG] Sync request received:', { ipAddress, port, timeout });
+
     const zkInstance = await initializeDevice(ipAddress, port, timeout);
     
-    // Get device information
-    console.log('[DEBUG] Getting device info...');
-    const deviceInfo = await zkInstance.getInfo();
-    console.log('[DEBUG] Device info:', deviceInfo);
+    // Get attendance data
+    const attendance = await zkInstance.getAttendance();
+    console.log('[DEBUG] Retrieved attendance records:', attendance.length);
 
-    // Get users
-    console.log('[DEBUG] Getting users...');
-    const response = await zkInstance.getUsers();
+    // Store attendance in Supabase
+    const { error } = await supabase
+      .from('attendance_records')
+      .upsert(attendance);
+
+    if (error) throw error;
+
+    // Disconnect from device
     await zkInstance.disconnect();
-    console.log('[DEBUG] Retrieved users:', response.data.length);
+    console.log('[DEBUG] Disconnected from device');
 
-    const formattedUsers: BiometricUser[] = response.data.map((user: any) => ({
-      id: user.id || user.uid,
-      name: user.name,
-      cardNumber: user.cardno || user.cardNumber,
-      role: user.role
-    }));
-
-    return res.json({
-      success: true,
-      data: {
-        users: formattedUsers,
-        deviceInfo,
-        totalUsers: formattedUsers.length
-      },
-      message: 'Successfully retrieved users from device'
-    });
+    res.json({ success: true, message: 'Attendance data synced successfully' });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    console.error('[ERROR] Sync failed:', errorMessage);
-    return res.status(500).json({ 
-      success: false, 
-      message: errorMessage 
-    });
+    console.error('[ERROR] Sync failed:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
 // Health check endpoint
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`[INFO] Server is running on port ${PORT}`);
   console.log(`[INFO] Environment: ${process.env.NODE_ENV || 'development'}`);

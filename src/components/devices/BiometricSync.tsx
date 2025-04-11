@@ -1,160 +1,72 @@
 import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { RefreshCw } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
-type BiometricSyncProps = {
+interface BiometricSyncProps {
   deviceId: string;
   ipAddress: string;
   onSuccess?: () => void;
-};
+}
 
-const BiometricSync: React.FC<BiometricSyncProps> = ({ deviceId, ipAddress, onSuccess }) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncProps) {
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<string>('');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const syncMutation = useMutation({
-    mutationFn: async () => {
+  const handleSync = async () => {
+    try {
       setIsSyncing(true);
-      setSyncProgress('Connecting to device...');
       
-      try {
-        console.log('Attempting to connect to:', ipAddress);
-        const response = await fetch('http://localhost:8081/api/devices/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            device_id: deviceId,
-            ip_address: ipAddress,
-            port: 4370, // ZKTeco default port
-            timeout: 10000 // Increased timeout to 10 seconds
-          }),
-        });
+      // Call Supabase Edge Function
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/device-sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          ipAddress,
+          deviceId
+        })
+      });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API Error Response:', {
-            status: response.status,
-            statusText: response.statusText,
-            body: errorText
-          });
-          throw new Error(`API Error: ${response.status} - ${errorText || response.statusText}`);
-        }
+      const data = await response.json();
 
-        const data = await response.json();
-        console.log('API Success Response:', data);
-
-        if (!data.success) {
-          throw new Error(data.message || 'Failed to sync with biometric device');
-        }
-
-        setSyncProgress(`Processing ${data.records} records...`);
-
-        // Update the last sync timestamp in the devices table
-        const { error: updateError } = await supabase
-          .from('devices')
-          .update({ 
-            last_update: new Date().toISOString(),
-            status: 'Online'
-          })
-          .eq('id', deviceId);
-
-        if (updateError) {
-          console.error('Supabase Update Error:', updateError);
-          throw updateError;
-        }
-
-        return data;
-      } catch (error) {
-        console.error('Sync Error:', error);
-        throw error;
-      } finally {
-        setIsSyncing(false);
-        setSyncProgress('');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to sync device');
       }
-    },
-    onSuccess: (data) => {
-      toast.success(`Successfully synced ${data.records} attendance records`);
-      setIsDialogOpen(false);
-      onSuccess?.();
-    },
-    onError: (error: Error) => {
-      console.error('Mutation Error:', error);
-      toast.error(`Failed to sync biometric data: ${error.message}`);
-      // Update device status to offline if connection failed
-      supabase
-        .from('devices')
-        .update({ 
-          status: 'Offline',
-          last_update: new Date().toISOString()
-        })
-        .eq('id', deviceId)
-        .then(() => {
-          console.log('Device status updated to offline');
-        })
-        .catch(console.error);
-    },
-  });
 
-  const handleSync = () => {
-    setIsDialogOpen(true);
+      toast({
+        title: 'Success',
+        description: 'Biometric data synced successfully',
+      });
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      
+      onSuccess?.();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-2"
-        onClick={handleSync}
-        disabled={isSyncing}
-      >
-        <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-        {isSyncing ? 'Syncing...' : 'Sync'}
-      </Button>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Sync Biometric Device</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Device IP</Label>
-              <Input value={ipAddress} disabled />
-            </div>
-            {syncProgress && (
-              <div className="text-sm text-gray-500">
-                {syncProgress}
-              </div>
-            )}
-            {!isSyncing && (
-              <p className="text-sm text-gray-500">
-                This will sync attendance records from the biometric device. 
-                Make sure the device is powered on and connected to the network.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSyncing}>
-              Cancel
-            </Button>
-            <Button onClick={() => syncMutation.mutate()} disabled={isSyncing}>
-              {isSyncing ? 'Syncing...' : 'Start Sync'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleSync}
+      disabled={isSyncing}
+    >
+      {isSyncing ? 'Syncing...' : 'Sync'}
+    </Button>
   );
-};
-
-export default BiometricSync; 
+} 

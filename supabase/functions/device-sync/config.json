@@ -1,0 +1,12 @@
+{
+  "name": "device-sync",
+  "version": "1.0.0",
+  "description": "Sync biometric data from devices to Supabase",
+  "main": "index.ts",
+  "scripts": {
+    "start": "supabase functions serve device-sync --env-file .env.local"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0"
+  }
+} 
