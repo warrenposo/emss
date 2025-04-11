@@ -201,7 +201,7 @@ const AttendanceList = () => {
         console.log('Fetching attendance records...');
         
         let query = supabase
-          .from('attendance_records')
+          .from('attendance_logs')
           .select(`
             *,
             devices (
@@ -210,54 +210,69 @@ const AttendanceList = () => {
             )
           `, { count: 'exact' });
 
-        if (isSearching) {
-          if (userIdFilter) {
-            query = query.ilike('user_id', `%${userIdFilter}%`);
-          }
-          if (deviceFilter !== 'all_devices') {
-            query = query.eq('device_id', deviceFilter);
-          }
-          if (verifyTypeFilter !== 'all_types') {
-            query = query.eq('verify_type', verifyTypeFilter);
-          }
-          if (statusFilter !== 'all_statuses') {
-            query = query.eq('status', statusFilter);
-          }
-          if (startDate) {
-            query = query.gte('timestamp', startDate.toISOString());
-          }
-          if (endDate) {
-            query = query.lte('timestamp', endDate.toISOString());
-          }
+        // Apply filters
+        if (userIdFilter) {
+          query = query.ilike('employee_id', `%${userIdFilter}%`);
         }
 
-        console.log('Running query:', query);
+        if (deviceFilter && deviceFilter !== 'all_devices') {
+          query = query.eq('device_id', deviceFilter);
+        }
 
+        if (verifyTypeFilter && verifyTypeFilter !== 'all_types') {
+          query = query.eq('verify_type', verifyTypeFilter);
+        }
+
+        if (statusFilter && statusFilter !== 'all_statuses') {
+          query = query.eq('status', statusFilter);
+        }
+
+        if (startDate) {
+          query = query.gte('punch_time', startDate.toISOString());
+        }
+
+        if (endDate) {
+          query = query.lte('punch_time', endDate.toISOString());
+        }
+
+        // Get paginated results
         const { data, error, count } = await query
-          .order('timestamp', { ascending: false })
+          .order('punch_time', { ascending: false })
           .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
 
         if (error) {
-          console.error('Supabase error:', error);
+          console.error('Error fetching attendance records:', error);
           throw error;
         }
 
-        console.log('Query result:', { data, count });
+        // Transform data to match expected format
+        const formattedData = (data || []).map(record => ({
+          id: record.id,
+          employee_id: record.employee_id || '',
+          device_id: record.device_id || '',
+          timestamp: record.punch_time || '',
+          temperature: record.temperature || null,
+          verify_type: record.verify_type || 'Unknown',
+          status: record.status || 'Unknown',
+          remark: record.remark || '',
+          created_at: record.created_at || '',
+          devices: record.devices || { alias: 'Unknown Device', serial_number: '' }
+        }));
 
-        return { 
-          data: data as AttendanceRecord[], 
-          count: count || 0 
+        return {
+          data: formattedData,
+          count: count || 0
         };
       } catch (error) {
-        console.error('Error fetching attendance records:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load attendance records. Please try again.',
-          variant: 'destructive',
-        });
-        return { data: [], count: 0 };
+        console.error('Error in attendance query:', error);
+        return {
+          data: [],
+          count: 0
+        };
       }
     },
+    retry: 3,
+    retryDelay: 1000
   });
 
   const handleSearch = () => {
@@ -492,7 +507,7 @@ const AttendanceList = () => {
                 ) : (
                   paginatedData.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell>{record.user_id}</TableCell>
+                      <TableCell>{record.employee_id}</TableCell>
                       <TableCell>
                         {record.devices?.alias || record.device_id}
                         <span className="text-xs text-muted-foreground block">

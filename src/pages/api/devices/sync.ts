@@ -44,6 +44,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const attendanceLogs = await zk.getAttendance();
     console.log(`Found ${attendanceLogs.length} attendance records`);
 
+    // Transform attendance logs to match database schema
+    const formattedLogs = attendanceLogs.map(log => ({
+      employee_id: log[1], // User ID from device
+      device_id: device_id,
+      punch_time: new Date(log[3]).toISOString(), // Timestamp
+      verify_type: getVerifyType(log[2]), // Convert verify type code to string
+      status: 'Present', // Default status
+      temperature: null, // Temperature if available
+      remark: 'Synced from device'
+    }));
+
     // Re-enable device after operations
     await zk.enableDevice();
     console.log('Device re-enabled');
@@ -52,9 +63,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ 
       success: true,
       message: 'Sync completed successfully',
-      records: attendanceLogs.length,
+      records: formattedLogs.length,
       deviceInfo,
-      logs: attendanceLogs
+      logs: formattedLogs
     });
 
   } catch (error) {
@@ -73,5 +84,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error('Error disconnecting:', error);
       }
     }
+  }
+}
+
+// Helper function to convert device verify type code to string
+function getVerifyType(code: number): string {
+  switch (code) {
+    case 0: return 'password';
+    case 1: return 'fingerprint';
+    case 2: return 'card';
+    case 3: return 'face';
+    default: return 'unknown';
   }
 } 
