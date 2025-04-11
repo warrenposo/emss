@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import { createClient } from '@supabase/supabase-js';
-import ZKLib from 'node-zklib';
+import ZKLib from './node-zklib-master/zklib';
 import dotenv from 'dotenv';
+import path from 'path';
 
 // Load environment variables
-dotenv.config();
+const envPath = path.resolve(__dirname, '../../.env.local');
+dotenv.config({ path: envPath });
 
 const app = express();
 
@@ -19,8 +21,13 @@ app.use(cors({
 app.use(express.json());
 
 // Initialize Supabase client with environment variables
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://lizkalsahbpmznkajjyr.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpemthbHNhaGJwbXpua2FqanlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI1NDA5NTcsImV4cCI6MjA1ODExNjk1N30.iv9rCs5qcaufM6hEP';
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase environment variables');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -50,15 +57,11 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   res.status(500).json({ error: 'Internal server error' });
 });
 
-async function initializeDevice(ipAddress: string, port: number = 4370, timeout: number = 5000) {
+async function initializeDevice(ipAddress: string, port: number = 4370, timeout: number = 10000) {
   try {
     console.log(`[DEBUG] Attempting to connect to device at ${ipAddress}:${port} with timeout ${timeout}ms`);
     
-    const zkInstance = new ZKLib({
-      ip: ipAddress,
-      port: port,
-      timeout: timeout
-    });
+    const zkInstance = new ZKLib(ipAddress, port, timeout, 4000);
 
     // Connect to device
     await zkInstance.createSocket();
@@ -100,16 +103,48 @@ app.post('/api/device/connect', async (req, res) => {
         }))
       );
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
+
+    // Get attendance records
+    const { data: attendances } = await zkInstance.getAttendances();
+    console.log('[DEBUG] Retrieved attendances:', attendances.length);
+
+    // Store attendance records in Supabase
+    const { error: attendanceError } = await supabase
+      .from('attendance_logs')
+      .upsert(
+        attendances.map(record => ({
+          device_id: deviceId,
+          employee_id: record.userId,
+          punch_time: record.timestamp,
+          verify_type: record.verifyType,
+          status: record.status
+        }))
+      );
+
+    if (attendanceError) {
+      throw attendanceError;
+    }
 
     // Disconnect from device
     await zkInstance.disconnect();
-    console.log('[DEBUG] Disconnected from device');
 
-    res.json({ success: true, message: 'Device connected and data synced successfully' });
+    res.json({
+      success: true,
+      message: 'Device connected and data synced successfully',
+      data: {
+        users: users.length,
+        attendances: attendances.length
+      }
+    });
   } catch (error) {
-    console.error('[ERROR] Connection failed:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[ERROR] Device connection error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 });
 
@@ -158,4 +193,5 @@ const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`[INFO] Server is running on port ${PORT}`);
   console.log(`[INFO] Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`[INFO] Supabase URL: ${supabaseUrl}`);
 }); 
