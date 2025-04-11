@@ -235,7 +235,8 @@ const AttendanceList = () => {
           query = query.lte('punch_time', endDate.toISOString());
         }
 
-        // Get paginated results
+        console.log('Running query:', query);
+
         const { data, error, count } = await query
           .order('punch_time', { ascending: false })
           .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
