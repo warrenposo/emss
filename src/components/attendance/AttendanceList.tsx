@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +13,8 @@ import { useQuery } from '@tanstack/react-query';
 import { getAttendanceRecords, getDepartments, getDevices, AttendanceRecord } from '@/lib/attendance';
 import { toast } from "sonner";
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabase';
 
 /**
  * AttendanceList Component
@@ -22,6 +23,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
  * Works in both connected mode (with Supabase) and demo mode (with mock data).
  */
 const AttendanceList = () => {
+  const { toast } = useToast();
   // State for filters
   const [idFilter, setIdFilter] = useState('');
   const [nameFilter, setNameFilter] = useState('');
@@ -32,6 +34,7 @@ const AttendanceList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Show notification if Supabase is not configured (demo mode)
   useEffect(() => {
@@ -84,7 +87,7 @@ const AttendanceList = () => {
    */
   const {
     data: attendanceData,
-    isLoading,
+    isLoading: isLoadingRecords,
     refetch,
   } = useQuery({
     queryKey: ['attendance', currentPage, itemsPerPage, isSearching, idFilter, nameFilter, departmentFilter, deviceFilter, startDate, endDate],
@@ -151,6 +154,67 @@ const AttendanceList = () => {
     } catch (error) {
       console.error('Export error:', error);
       toast.error('Failed to export data');
+    }
+  };
+
+  const syncAttendance = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Call the local server endpoint for device sync
+      const response = await fetch('http://localhost:3005/api/device/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ipAddress: '192.168.100.51', // Your device IP
+          port: 4370
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to sync attendance');
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: 'Success',
+        description: `Successfully synced ${data.recordCount || 0} attendance records`,
+      });
+
+      // Refresh the attendance data
+      refetch();
+    } catch (error) {
+      console.error('Sync error:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to sync attendance',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getAttendanceType = (type: number) => {
+    switch (type) {
+      case 0:
+        return 'Check-In';
+      case 1:
+        return 'Check-Out';
+      case 2:
+        return 'Break-Out';
+      case 3:
+        return 'Break-In';
+      case 4:
+        return 'Overtime-In';
+      case 5:
+        return 'Overtime-Out';
+      default:
+        return 'Unknown';
     }
   };
 
@@ -304,53 +368,57 @@ const AttendanceList = () => {
               <TableRow>
                 <TableHead>Employee ID</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Device Name</TableHead>
-                <TableHead>Punch Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Verify Type</TableHead>
-                <TableHead>Device Serial</TableHead>
-                <TableHead>Remark</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Time</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Device</TableHead>
+                <TableHead>Verification</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoadingRecords ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-10">
+                  <TableCell colSpan={7} className="text-center">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-primary animate-spin" />
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">Loading attendance records...</p>
                   </TableCell>
                 </TableRow>
-              ) : paginatedData.length > 0 ? (
-                paginatedData.map((record, i) => (
-                  <TableRow key={record.id || i}>
-                    <TableCell>{record.employee_id}</TableCell>
-                    <TableCell>{record.employee_name}</TableCell>
-                    <TableCell>{record.department}</TableCell>
-                    <TableCell>{record.device_name}</TableCell>
-                    <TableCell>{record.punch_date} {record.punch_time}</TableCell>
+              ) : attendanceData?.data?.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center">
+                    No attendance records found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                attendanceData?.data?.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell>{record.user_id}</TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        record.status === 'Present' 
-                          ? 'bg-green-100 text-green-800' 
-                          : record.status === 'Late'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                      }`}>
-                        {record.status}
+                      {record.employee 
+                        ? `${record.employee.first_name} ${record.employee.last_name}`
+                        : 'Unknown Employee'}
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(record.timestamp), 'MMM dd, yyyy')}
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(record.timestamp), 'hh:mm a')}
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium",
+                        record.type === 0 && "bg-green-100 text-green-800",
+                        record.type === 1 && "bg-blue-100 text-blue-800"
+                      )}>
+                        {getAttendanceType(record.type)}
                       </span>
                     </TableCell>
-                    <TableCell>{record.verify_type}</TableCell>
-                    <TableCell>{record.device_serial}</TableCell>
-                    <TableCell>{record.remark}</TableCell>
+                    <TableCell>{record.device_name || 'Unknown Device'}</TableCell>
+                    <TableCell>{record.verify_mode || 'Fingerprint'}</TableCell>
                   </TableRow>
                 ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-4">No records found</TableCell>
-                </TableRow>
               )}
             </TableBody>
           </Table>
@@ -422,6 +490,61 @@ const AttendanceList = () => {
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex justify-between items-center mt-4">
+        <h2 className="text-2xl font-bold">Attendance Records</h2>
+        <Button 
+          onClick={syncAttendance} 
+          disabled={isLoading}
+        >
+          {isLoading ? 'Syncing...' : 'Sync Attendance'}
+        </Button>
+      </div>
+
+      <div className="border rounded-lg mt-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Employee</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Type</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoadingRecords ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center">
+                  Loading records...
+                </TableCell>
+              </TableRow>
+            ) : attendanceData?.data?.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center">
+                  No attendance records found
+                </TableCell>
+              </TableRow>
+            ) : (
+              attendanceData?.data?.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell>
+                    {record.employee 
+                      ? `${record.employee.first_name} ${record.employee.last_name}`
+                      : 'Unknown Employee'}
+                  </TableCell>
+                  <TableCell>
+                    {format(new Date(record.timestamp), 'MMM dd, yyyy')}
+                  </TableCell>
+                  <TableCell>
+                    {format(new Date(record.timestamp), 'hh:mm a')}
+                  </TableCell>
+                  <TableCell>{getAttendanceType(record.type)}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };

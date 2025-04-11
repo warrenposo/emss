@@ -20,8 +20,8 @@ export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncP
       setIsSyncing(true);
       console.log('Starting sync with device:', { deviceId, ipAddress });
       
-      // Call the local server endpoint
-      const response = await fetch('http://localhost:3005/api/device/connect', {
+      // First connect to the device
+      const connectResponse = await fetch('http://localhost:3005/api/device/connect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -33,12 +33,30 @@ export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncP
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (!connectResponse.ok) {
+        const errorData = await connectResponse.json();
+        throw new Error(errorData.error || 'Failed to connect to device');
+      }
+
+      // Then sync attendance data
+      const syncResponse = await fetch('http://localhost:3005/api/device/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ipAddress,
+          deviceId,
+          port: 4370 // Default ZKTeco port
+        })
+      });
+
+      if (!syncResponse.ok) {
+        const errorData = await syncResponse.json();
         throw new Error(errorData.error || 'Failed to sync device');
       }
 
-      const data = await response.json();
+      const data = await syncResponse.json();
       console.log('Sync response:', data);
 
       toast({
