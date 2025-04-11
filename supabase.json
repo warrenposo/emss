@@ -1,6 +1,6 @@
 {
   "functions": {
-    "device-sync": {
+    "sync-device": {
       "verify_jwt": false
     }
   }

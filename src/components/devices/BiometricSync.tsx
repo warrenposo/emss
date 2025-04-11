@@ -10,6 +10,14 @@ interface BiometricSyncProps {
   onSuccess?: () => void;
 }
 
+interface SyncResponse {
+  success: boolean;
+  message: string;
+  records?: number;
+  deviceInfo?: any;
+  error?: string;
+}
+
 export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();
@@ -20,48 +28,28 @@ export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncP
       setIsSyncing(true);
       console.log('Starting sync with device:', { deviceId, ipAddress });
       
-      // First connect to the device
-      const connectResponse = await fetch('http://localhost:3005/api/device/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Call the Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke<SyncResponse>('sync-device', {
+        body: {
           ipAddress,
           deviceId,
           port: 4370 // Default ZKTeco port
-        })
+        }
       });
 
-      if (!connectResponse.ok) {
-        const errorData = await connectResponse.json();
-        throw new Error(errorData.error || 'Failed to connect to device');
+      if (error) {
+        throw new Error(error.message || 'Failed to sync device');
       }
 
-      // Then sync attendance data
-      const syncResponse = await fetch('http://localhost:3005/api/device/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ipAddress,
-          deviceId,
-          port: 4370 // Default ZKTeco port
-        })
-      });
-
-      if (!syncResponse.ok) {
-        const errorData = await syncResponse.json();
-        throw new Error(errorData.error || 'Failed to sync device');
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to sync device');
       }
 
-      const data = await syncResponse.json();
       console.log('Sync response:', data);
 
       toast({
         title: 'Success',
-        description: 'Biometric data synced successfully',
+        description: `Successfully synced ${data.records || 0} attendance records`,
       });
 
       // Invalidate queries to refresh data
