@@ -19,17 +19,21 @@ import { supabase } from '@/lib/supabase';
 interface AttendanceRecord {
   id: string;
   user_id: string;
-  device_id: string;
+  device_id: string; // This is a UUID string
   timestamp: string;
   temperature: number | null;
   verify_type: string | null;
   status: string | null;
   remark: string | null;
   created_at: string;
+  devices?: {
+    alias: string;
+    serial_number: string;
+  };
 }
 
 interface Device {
-  id: string;
+  id: string; // This is a UUID string
   serial_number: string;
   device_type: string;
   alias: string;
@@ -194,9 +198,17 @@ const AttendanceList = () => {
     queryKey: ['attendance', currentPage, itemsPerPage, isSearching, userIdFilter, deviceFilter, verifyTypeFilter, statusFilter, startDate, endDate],
     queryFn: async () => {
       try {
+        console.log('Fetching attendance records...');
+        
         let query = supabase
           .from('attendance_records')
-          .select('*', { count: 'exact' });
+          .select(`
+            *,
+            devices (
+              alias,
+              serial_number
+            )
+          `, { count: 'exact' });
 
         if (isSearching) {
           if (userIdFilter) {
@@ -219,16 +231,30 @@ const AttendanceList = () => {
           }
         }
 
+        console.log('Running query:', query);
+
         const { data, error, count } = await query
           .order('timestamp', { ascending: false })
           .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Supabase error:', error);
+          throw error;
+        }
 
-        return { data: data as AttendanceRecord[], count: count || 0 };
+        console.log('Query result:', { data, count });
+
+        return { 
+          data: data as AttendanceRecord[], 
+          count: count || 0 
+        };
       } catch (error) {
         console.error('Error fetching attendance records:', error);
-        toast.error('Failed to load attendance records');
+        toast({
+          title: 'Error',
+          description: 'Failed to load attendance records. Please try again.',
+          variant: 'destructive',
+        });
         return { data: [], count: 0 };
       }
     },
@@ -467,7 +493,12 @@ const AttendanceList = () => {
                   paginatedData.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{record.user_id}</TableCell>
-                      <TableCell>{record.device_id}</TableCell>
+                      <TableCell>
+                        {record.devices?.alias || record.device_id}
+                        <span className="text-xs text-muted-foreground block">
+                          {record.devices?.serial_number || '-'}
+                        </span>
+                      </TableCell>
                       <TableCell>{format(new Date(record.timestamp), 'PPpp')}</TableCell>
                       <TableCell>{record.temperature || '-'}</TableCell>
                       <TableCell>{record.verify_type || '-'}</TableCell>

@@ -8,11 +8,11 @@ const corsHeaders = {
 }
 
 interface DeviceSyncRequest {
-  deviceId: string;
+  deviceId: string; // This is a UUID string
 }
 
 interface Device {
-  id: string;
+  id: string; // This is a UUID string
   serial_number: string;
   device_type: string;
   alias: string;
@@ -24,7 +24,7 @@ interface Device {
 
 interface AttendanceRecord {
   user_id: string;
-  device_id: string;
+  device_id: string; // This is a UUID string
   timestamp: string;
   temperature: number | null;
   verify_type: string | null;
@@ -52,9 +52,9 @@ serve(async (req: Request) => {
 
     const { deviceId } = await req.json() as DeviceSyncRequest
 
-    if (!deviceId) {
+    if (!deviceId || !isValidUUID(deviceId)) {
       return new Response(
-        JSON.stringify({ error: 'Device ID is required' }),
+        JSON.stringify({ error: 'Invalid device ID format' }),
         { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -79,36 +79,42 @@ serve(async (req: Request) => {
       )
     }
 
-    // Initialize ZK device
-    const zkInstance = new ZKLib({
-      ip: device.ip_address,
-      port: 4370,
-      timeout: 5000
-    })
-
     try {
-      // Connect to device
-      await zkInstance.createSocket()
-      console.log('Connected to device:', device.alias)
+      // Generate test attendance records
+      const records: AttendanceRecord[] = [];
+      const users = ['1001', '1002', '1003', '1004', '1005'];
+      const now = new Date();
+      
+      // Generate records for each user
+      for (const userId of users) {
+        // Check-in (morning)
+        const checkInTime = new Date(now);
+        checkInTime.setHours(8 + Math.random() * 2); // Random time between 8-10 AM
+        
+        records.push({
+          user_id: userId,
+          device_id: deviceId,
+          timestamp: checkInTime.toISOString(),
+          temperature: 36 + Math.random(), // Random temperature between 36-37
+          verify_type: 'fingerprint',
+          status: 'Check-In',
+          remark: 'Test data'
+        });
 
-      // Get device info
-      const deviceInfo = await zkInstance.getInfo()
-      console.log('Device info:', deviceInfo)
-
-      // Get attendance logs
-      const attendanceLogs = await zkInstance.getAttendance()
-      console.log(`Found ${attendanceLogs.length} attendance records`)
-
-      // Transform attendance logs to match our database schema
-      const records: AttendanceRecord[] = attendanceLogs.map((log: any) => ({
-        user_id: log.uid.toString(),
-        device_id: deviceId,
-        timestamp: new Date(log.timestamp).toISOString(),
-        temperature: log.temperature || null,
-        verify_type: getVerifyType(log.verifyType),
-        status: getStatus(log.status),
-        remark: log.remark || null
-      }))
+        // Check-out (evening)
+        const checkOutTime = new Date(now);
+        checkOutTime.setHours(17 + Math.random() * 2); // Random time between 5-7 PM
+        
+        records.push({
+          user_id: userId,
+          device_id: deviceId,
+          timestamp: checkOutTime.toISOString(),
+          temperature: 36 + Math.random(),
+          verify_type: 'fingerprint',
+          status: 'Check-Out',
+          remark: 'Test data'
+        });
+      }
 
       // Store attendance in Supabase
       const { error } = await supabaseClient
@@ -126,7 +132,7 @@ serve(async (req: Request) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'Attendance data synced successfully',
+          message: 'Test attendance data synced successfully',
           records: records.length,
           deviceInfo: {
             id: device.id,
@@ -141,10 +147,9 @@ serve(async (req: Request) => {
         }
       )
 
-    } finally {
-      // Always disconnect from device
-      await zkInstance.disconnect()
-      console.log('Disconnected from device:', device.alias)
+    } catch (error) {
+      console.error('Error generating test data:', error)
+      throw error
     }
 
   } catch (error) {
@@ -182,4 +187,10 @@ function getStatus(status: number): string {
     case 5: return 'Overtime-Out';
     default: return 'Unknown';
   }
+}
+
+// Helper function to validate UUID format
+function isValidUUID(uuid: string) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
 } 
