@@ -416,8 +416,8 @@ const AttendanceList = () => {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
             {/* Date Range Filters */}
-            <Popover>
-              <PopoverTrigger asChild>
+              <Popover>
+                <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
@@ -427,19 +427,19 @@ const AttendanceList = () => {
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {startDate ? format(startDate, "PPP") : <span>Start Date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={setStartDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            <Popover>
-              <PopoverTrigger asChild>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={setStartDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
@@ -449,17 +449,17 @@ const AttendanceList = () => {
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {endDate ? format(endDate, "PPP") : <span>End Date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={setEndDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={setEndDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             <div className="flex gap-2">
               <Button onClick={handleSearch} className="flex-1">
                 <Search className="mr-2 h-4 w-4" />
@@ -483,25 +483,25 @@ const AttendanceList = () => {
             </Button>
           </div>
           <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
+          <Table>
+            <TableHeader>
+              <TableRow>
                   <TableHead>User ID</TableHead>
                   <TableHead>Device</TableHead>
                   <TableHead>Timestamp</TableHead>
                   <TableHead>Temperature</TableHead>
                   <TableHead>Verify Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Remark</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                <TableHead>Status</TableHead>
+                <TableHead>Remark</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
                 {isLoadingRecords ? (
-                  <TableRow>
+                <TableRow>
                     <TableCell colSpan={7} className="text-center">
                       Loading...
-                    </TableCell>
-                  </TableRow>
+                  </TableCell>
+                </TableRow>
                 ) : paginatedData.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center">
@@ -523,65 +523,65 @@ const AttendanceList = () => {
                       <TableCell>{record.verify_type || '-'}</TableCell>
                       <TableCell>{record.status || '-'}</TableCell>
                       <TableCell>{record.remark || '-'}</TableCell>
-                    </TableRow>
+                </TableRow>
                   ))
-                )}
-              </TableBody>
-            </Table>
+              )}
+            </TableBody>
+          </Table>
           </div>
           {/* Pagination */}
           <div className="flex items-center justify-between mt-4">
             <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentPage(1)}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(1)}
                 disabled={currentPage === 1}
-              >
-                <ChevronFirst className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
+                >
+                  <ChevronFirst className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
                 onClick={() => setCurrentPage(currentPage - 1)}
                 disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
               <span className="text-sm">
                 Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentPage(totalPages)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage === totalPages}
-              >
-                <ChevronLast className="h-4 w-4" />
-              </Button>
-            </div>
-            <Select
-              value={itemsPerPage.toString()}
+                >
+                  <ChevronLast className="h-4 w-4" />
+                </Button>
+              </div>
+              <Select
+                value={itemsPerPage.toString()}
               onValueChange={(value) => setItemsPerPage(Number(value))}
             >
               <SelectTrigger className="w-[100px]">
                 <SelectValue placeholder="Items per page" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
-              </SelectContent>
-            </Select>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
           </div>
         </CardContent>
       </Card>

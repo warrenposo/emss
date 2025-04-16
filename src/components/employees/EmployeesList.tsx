@@ -120,7 +120,7 @@ const EmployeesList: React.FC = () => {
           departments (name),
           positions (title)
         `);
-
+      
       if (searchId) {
         query = query.ilike('id', `%${searchId}%`);
       }
@@ -130,19 +130,19 @@ const EmployeesList: React.FC = () => {
       if (searchDepartment && searchDepartment !== 'all_departments') {
         query = query.eq('department_id', searchDepartment);
       }
-
+      
       const { data: employees, error } = await query
         .range((currentPage - 1) * pageSize, currentPage * pageSize - 1)
         .order('id');
-
+      
       if (error) {
         throw new Error(error.message);
       }
 
       return employees?.map((employee) => ({
         ...employee,
-        department: employee.departments?.name || '',
-        position: employee.positions?.title || '',
+          department: employee.departments?.name || '',
+          position: employee.positions?.title || '',
       })) as EmployeeWithRelations[];
     },
   });
@@ -235,7 +235,7 @@ const EmployeesList: React.FC = () => {
         notes: updatedEmp.notes,
         updated_at: new Date().toISOString()
       };
-
+      
       const { data, error } = await supabase
         .from('employees')
         .update(updateData)
@@ -264,12 +264,12 @@ const EmployeesList: React.FC = () => {
       if (!session.data.session) {
         throw new Error('Unauthorized');
       }
-
+      
       const { error } = await supabase
         .from('employees')
         .delete()
         .eq('id', employeeId);
-
+        
       if (error) {
         throw new Error(error.message);
       }
@@ -349,70 +349,70 @@ const EmployeesList: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm p-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Employees</h1>
-          <Button 
+            <Button 
             onClick={() => setIsAddDialogOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-md flex items-center gap-2 transition-colors"
           >
             <Plus className="w-5 h-5" />
             <span className="font-medium text-base">Add New Employee</span>
-          </Button>
-        </div>
-
+            </Button>
+          </div>
+          
         <div className="flex gap-4 flex-wrap mb-6">
-          <Input
+              <Input
             placeholder="Search by ID..."
-            value={searchId}
-            onChange={(e) => setSearchId(e.target.value)}
+                value={searchId}
+                onChange={(e) => setSearchId(e.target.value)}
             className="max-w-[200px]"
-          />
-          <Input
+              />
+              <Input
             placeholder="Search by name..."
-            value={searchName}
-            onChange={(e) => setSearchName(e.target.value)}
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
             className="max-w-[200px]"
           />
           <Select value={searchDepartment} onValueChange={setSearchDepartment}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Select department" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all_departments">All Departments</SelectItem>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all_departments">All Departments</SelectItem>
               {departments?.map((dept) => (
                 <SelectItem key={dept.id} value={dept.id}>
                   {dept.name}
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
+                  ))}
+                </SelectContent>
+              </Select>
+          </div>
+          
         <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoadingEmployees ? (
+            <Table>
+              <TableHeader>
                 <TableRow>
+                <TableHead>ID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Position</TableHead>
+                <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoadingEmployees ? (
+                  <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     <div className="flex justify-center items-center">
                       <Loader2 className="w-6 h-6 animate-spin mr-2" />
                       Loading employees...
-                    </div>
-                  </TableCell>
-                </TableRow>
+                      </div>
+                    </TableCell>
+                  </TableRow>
               ) : employeesData?.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8">
                     No employees found
                   </TableCell>
-                </TableRow>
+                    </TableRow>
               ) : (
                 employeesData?.map((employee) => (
                   <TableRow key={employee.id}>
@@ -440,36 +440,36 @@ const EmployeesList: React.FC = () => {
                     </TableCell>
                   </TableRow>
                 ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-
-        {employeesData?.length > 0 && (
-          <div className="flex justify-between items-center mt-4">
-            <div>
-              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, employeesData.length)} of {employeesData.length} entries
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => p - 1)}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => p + 1)}
-                disabled={(currentPage * pageSize) >= employeesData.length}
-              >
-                Next
-              </Button>
-            </div>
+                )}
+              </TableBody>
+            </Table>
           </div>
-        )}
+          
+        {employeesData?.length > 0 && (
+            <div className="flex justify-between items-center mt-4">
+              <div>
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, employeesData.length)} of {employeesData.length} entries
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                onClick={() => setCurrentPage(p => p - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => p + 1)}
+                disabled={(currentPage * pageSize) >= employeesData.length}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
       </div>
 
       <AddEmployeeDialog

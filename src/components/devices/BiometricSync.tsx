@@ -18,6 +18,26 @@ interface SyncResponse {
   error?: string;
 }
 
+// Define dummy attendance data
+const dummyAttendanceData = [
+  {
+    id: '1',
+    user_id: 'user_1',
+    device_id: 'device_1',
+    timestamp: '2023-10-01T08:00:00Z',
+    temperature: 36.5,
+    verify_type: 'fingerprint',
+    status: 'Present',
+    remark: 'On time',
+    created_at: '2023-10-01T08:00:00Z',
+    devices: {
+      alias: 'Device 1',
+      serial_number: 'SN123456'
+    }
+  },
+  // Add more dummy records as needed
+];
+
 export function BiometricSync({ deviceId, ipAddress, onSuccess }: BiometricSyncProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const { toast } = useToast();

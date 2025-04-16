@@ -197,8 +197,8 @@ const DevicesList: React.FC = () => {
         <Button onClick={() => setIsAddDialogOpen(true)}>
           Add Device
         </Button>
-      </div>
-
+          </div>
+          
       <Input
         placeholder="Search devices..."
         value={searchTerm}
@@ -216,20 +216,20 @@ const DevicesList: React.FC = () => {
               <th className="p-4 text-left">Type</th>
               <th className="p-4 text-left">Last Update</th>
               <th className="p-4 text-left">Actions</th>
-            </tr>
-          </thead>
+                </tr>
+              </thead>
           <tbody>
-            {filteredDevices.map((device) => (
+                {filteredDevices.map((device) => (
               <tr key={device.id} className="border-b">
                 <td className="p-4">{device.serial_number}</td>
                 <td className="p-4">{device.alias}</td>
                 <td className="p-4">{device.ip_address}</td>
                 <td className="p-4">
                   {device.device_type}
-                </td>
+                    </td>
                 <td className="p-4">
                   {new Date(device.last_update).toLocaleString()}
-                </td>
+                    </td>
                 <td className="p-4 space-x-2">
                   {device.device_type === 'Biometric' && (
                     <BiometricSync
@@ -258,12 +258,12 @@ const DevicesList: React.FC = () => {
                   >
                     Delete
                   </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
       {/* Add Device Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -394,8 +394,8 @@ const DevicesList: React.FC = () => {
                     <SelectItem value="Biometric">Biometric</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
+        </div>
+      </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
